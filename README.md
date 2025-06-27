@@ -7,14 +7,16 @@ A FastAPI application for streaming internet radio stations with built-in suppor
 - Stream Swedish Radio stations (P1, P2, P3) out of the box
 - Add and manage custom radio stations
 - RESTful API for controlling playback
-- Local audio playback using pygame
+- Local audio playback using VLC media player
 - Volume control
 - Play/pause/stop controls
 - Real-time status monitoring
+- Modular architecture with separate Radio and API components
 
 ## Requirements
 
-- Python 3.8+
+- Python 3.13+
+- VLC media player installed on your system
 - Audio system (speakers/headphones)
 - Internet connection for streaming
 
@@ -47,12 +49,15 @@ This will start:
 ### Option 2: Backend Only
 
 ```bash
-# Using uv
+# Using uv with the start script
+uv run start_server.py
+
+# Or using main.py entry point
 uv run main.py
 
 # Or activate the virtual environment and run directly
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-python main.py
+python start_server.py
 ```
 
 The API will be available at `http://localhost:8000`
@@ -133,22 +138,72 @@ curl -X POST http://localhost:8000/stop
 - **p2**: Sveriges Radio P2 (Classical music and cultural programs)  
 - **p3**: Sveriges Radio P3 (Pop, rock and contemporary music)
 
+## Project Structure
+
+After refactoring, the project has a clean modular structure:
+
+```
+radio-streamer/
+├── __init__.py          # Package initialization
+├── radio.py             # RadioStreamer class and audio logic
+├── api.py               # FastAPI application and endpoints
+├── main.py              # Simple entry point
+├── start_server.py      # Production server starter
+├── test_api.py          # API testing script
+├── pyproject.toml       # Project dependencies
+└── README.md            # This file
+```
+
 ## Technical Notes
 
-- Uses pygame for audio playback
-- Supports MP3 and other formats supported by pygame
+- Uses VLC media player for robust audio playback
+- Supports all formats supported by VLC (MP3, OGG, AAC, etc.)
 - Runs playback in separate threads to avoid blocking the API
 - Thread-safe operations for concurrent API calls
+- Modular architecture separates radio logic from API endpoints
+
+## VLC Installation
+
+Make sure VLC is installed on your system:
+
+**macOS:**
+```bash
+brew install vlc
+```
+
+**Ubuntu/Debian:**
+```bash
+sudo apt-get install vlc
+```
+
+**Windows:**
+Download from [https://www.videolan.org/vlc/](https://www.videolan.org/vlc/)
 
 ## Limitations
 
-- pygame has some limitations with certain streaming formats
+- Requires VLC media player to be installed on the system
 - Some radio stations may require specific headers or authentication
 - Audio quality depends on the source stream quality
+- On headless systems, audio output needs to be properly configured
 
 ## Development
 
 To run in development mode with auto-reload:
 ```bash
-uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000
+# Using the api module (after refactoring)
+uv run uvicorn api:app --reload --host 0.0.0.0 --port 8000
+
+# Or using the convenience script
+uv run start_server.py
+```
+
+## Testing
+
+Run the test script to verify everything works:
+```bash
+# Start the server first
+uv run start_server.py &
+
+# Then run tests
+uv run test_api.py
 ```
