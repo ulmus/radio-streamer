@@ -166,6 +166,36 @@ radio-streamer/
 - Thread-safe operations for concurrent API calls
 - Modular architecture separates radio logic from API endpoints
 
+## 📱 ESP32 Touch Screen UI
+
+A dedicated ESP32-based touch screen interface provides wireless control for the radio streamer!
+
+### Features
+- **Touch Screen Interface**: LVGL-based UI for intuitive control
+- **WiFi Connectivity**: Wireless communication with the radio streamer server
+- **Station Selection**: Browse and select stations with touch
+- **Playback Controls**: Play, pause, stop buttons
+- **Volume Control**: Touch slider for easy volume adjustment
+- **Real-time Updates**: Live status and now playing information
+- **Portable**: Battery-powered ESP32 for mobile control
+
+### Hardware Requirements
+- ESP32 development board
+- TFT touch screen display (ILI9341 or compatible)
+- Connection wires and breadboard
+
+### Quick Start
+1. Wire the ESP32 to your touch display
+2. Configure WiFi credentials in `esp32-ui/src/main.cpp`
+3. Build and upload:
+   ```bash
+   cd esp32-ui
+   ./build.sh
+   pio run --target upload
+   ```
+
+For detailed setup instructions, see [esp32-ui/README.md](esp32-ui/README.md)
+
 ## 🎛️ Stream Deck Integration
 
 The radio streamer now supports Elgato Stream Deck for physical button control! Each radio station is automatically assigned to a button with real-time visual feedback.
