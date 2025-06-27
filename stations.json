@@ -1,0 +1,36 @@
+{
+  "swedish_radio": {
+    "p1": {
+      "name": "Sveriges Radio P1",
+      "url": "https://http-live.sr.se/p1-mp3-192",
+      "description": "News, culture and debate",
+      "genre": "news"
+    },
+    "p2": {
+      "name": "Sveriges Radio P2",
+      "url": "https://http-live.sr.se/p2-mp3-192",
+      "description": "Classical music and cultural programs",
+      "genre": "classical"
+    },
+    "p3": {
+      "name": "Sveriges Radio P3",
+      "url": "https://http-live.sr.se/p3-mp3-192",
+      "description": "Pop, rock and contemporary music",
+      "genre": "pop"
+    },
+    "p4_stockholm": {
+      "name": "Sveriges Radio P4 Stockholm",
+      "url": "https://http-live.sr.se/p4stockholm-mp3-192",
+      "description": "Local news and music for Stockholm",
+      "genre": "local"
+    }
+  },
+  "international": {
+    "bbc_world": {
+      "name": "BBC World Service",
+      "url": "http://stream.live.vc.bbcmedia.co.uk/bbc_world_service",
+      "description": "International news and current affairs",
+      "genre": "news"
+    }
+  }
+}
