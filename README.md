@@ -7,11 +7,12 @@ A FastAPI application for streaming internet radio stations with built-in suppor
 - Stream Swedish Radio stations (P1, P2, P3) out of the box
 - Add and manage custom radio stations
 - RESTful API for controlling playback
+- **🎛️ Stream Deck Integration** - Control stations with physical buttons!
 - Local audio playback using VLC media player
 - Volume control
 - Play/pause/stop controls
 - Real-time status monitoring
-- Modular architecture with separate Radio and API components
+- Modular architecture with separate Radio, API, and Stream Deck components
 
 ## Requirements
 
@@ -19,6 +20,7 @@ A FastAPI application for streaming internet radio stations with built-in suppor
 - VLC media player installed on your system
 - Audio system (speakers/headphones)
 - Internet connection for streaming
+- **Optional**: Elgato Stream Deck for physical button control
 
 ## Installation
 
@@ -144,14 +146,16 @@ After refactoring, the project has a clean modular structure:
 
 ```
 radio-streamer/
-├── __init__.py          # Package initialization
-├── radio.py             # RadioStreamer class and audio logic
-├── api.py               # FastAPI application and endpoints
-├── main.py              # Simple entry point
-├── start_server.py      # Production server starter
-├── test_api.py          # API testing script
-├── pyproject.toml       # Project dependencies
-└── README.md            # This file
+├── __init__.py              # Package initialization
+├── radio.py                 # RadioStreamer class and audio logic
+├── api.py                   # FastAPI application and endpoints
+├── streamdeck_interface.py  # Stream Deck controller and interface
+├── main.py                  # Simple entry point
+├── start_server.py          # Production server starter
+├── start_with_streamdeck.py # Unified server with Stream Deck support
+├── test_api.py              # API testing script
+├── pyproject.toml           # Project dependencies
+└── README.md                # This file
 ```
 
 ## Technical Notes
@@ -161,6 +165,75 @@ radio-streamer/
 - Runs playback in separate threads to avoid blocking the API
 - Thread-safe operations for concurrent API calls
 - Modular architecture separates radio logic from API endpoints
+
+## 🎛️ Stream Deck Integration
+
+The radio streamer now supports Elgato Stream Deck for physical button control! Each radio station is automatically assigned to a button with real-time visual feedback.
+
+### Features
+- **Automatic Station Mapping**: Swedish Radio stations (P1, P2, P3) assigned to first buttons
+- **Custom Station Support**: Additional stations mapped to remaining buttons
+- **Visual Feedback**: Button colors change based on playback state:
+  - 🔵 **Blue**: Available station
+  - 🟢 **Green**: Currently playing
+  - 🟠 **Orange**: Loading
+  - 🔴 **Red**: Error
+- **Stop Button**: Dedicated stop control
+- **Auto-refresh**: Button mappings update when stations are added/removed
+
+### Running with Stream Deck
+
+```bash
+# Start both API and Stream Deck interface
+uv run start_with_streamdeck.py
+```
+
+This will start:
+- API server at `http://localhost:8000`
+- Stream Deck interface (if device connected)
+- Automatic button mapping and visual feedback
+
+### Stream Deck API Endpoints
+
+- `GET /streamdeck/status` - Check Stream Deck connection status
+- `POST /streamdeck/refresh` - Refresh button mappings
+
+### Stream Deck Requirements
+
+**Hardware:**
+- Elgato Stream Deck (any model)
+- USB connection to computer
+
+**Software:**
+- Stream Deck dependencies are automatically installed with the project
+- No additional Stream Deck software required
+
+### Button Layout
+
+| Button | Function |
+|--------|---------|
+| 1 | Sveriges Radio P1 |
+| 2 | Sveriges Radio P2 |
+| 3 | Sveriges Radio P3 |
+| 4+ | Custom stations (in order added) |
+| Last | Stop playback |
+
+### Troubleshooting Stream Deck
+
+**Stream Deck not detected:**
+1. Ensure Stream Deck is connected via USB
+2. Check that no other Stream Deck software is running
+3. Try disconnecting and reconnecting the device
+4. Check console output for specific error messages
+
+**Permissions issues (Linux):**
+```bash
+# Add udev rule for Stream Deck access
+sudo tee /etc/udev/rules.d/50-streamdeck.rules << EOF
+SUBSYSTEM=="usb", ATTRS{idVendor}=="0fd9", TAG+="uaccess"
+EOF
+sudo udevadm control --reload-rules
+```
 
 ## VLC Installation
 

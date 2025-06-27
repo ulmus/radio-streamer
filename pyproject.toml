@@ -11,4 +11,6 @@ dependencies = [
     "requests>=2.32.4",
     "uvicorn>=0.34.3",
     "python-vlc>=3.0.0",
+    "streamdeck>=0.9.5",
+    "pillow>=10.0.0",
 ]
