@@ -13,4 +13,6 @@ dependencies = [
     "python-vlc>=3.0.0",
     "streamdeck>=0.9.5",
     "pillow>=10.0.0",
+    "textual>=0.47.0",
+    "rich>=13.0.0",
 ]
