@@ -20,7 +20,7 @@ if ! command -v npm &> /dev/null; then
 fi
 
 # Start backend in background
-echo "🚀 Starting backend API on http://localhost:8000..."
+echo "🚀 Starting backend API on http://0.0.0.0:8000 (accessible via raspberrypi.local:8000)..."
 cd "$(dirname "$0")"
 uv run main.py &
 BACKEND_PID=$!
@@ -29,7 +29,7 @@ BACKEND_PID=$!
 sleep 3
 
 # Start frontend in a new terminal/background
-echo "🎨 Starting frontend on http://localhost:5173..."
+echo "🎨 Starting frontend on http://0.0.0.0:5173 (accessible via raspberrypi.local:5173)..."
 cd radio-frontend
 
 # Check if node_modules exists, if not install dependencies
@@ -43,9 +43,9 @@ FRONTEND_PID=$!
 
 echo ""
 echo "✅ Radio Streamer is now running!"
-echo "🎵 Frontend: http://localhost:5173"
-echo "🔌 Backend API: http://localhost:8000"
-echo "📚 API Docs: http://localhost:8000/docs"
+echo "🎵 Frontend: http://raspberrypi.local:5173"
+echo "🔌 Backend API: http://raspberrypi.local:8000"
+echo "📚 API Docs: http://raspberrypi.local:8000/docs"
 echo ""
 echo "Press Ctrl+C to stop both services"
 

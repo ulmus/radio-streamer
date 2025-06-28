@@ -24,6 +24,11 @@ app.add_middleware(
         "http://127.0.0.1:5173",  # Alternative localhost
         "http://localhost:3000",  # Alternative dev port
         "http://127.0.0.1:3000",  # Alternative localhost
+        "http://raspberrypi.local:5173",  # Raspberry Pi frontend
+        "http://raspberrypi.local:3000",  # Alternative Pi frontend port
+        "http://192.168.124.152:5173",  # Pi IP address frontend
+        "http://192.168.124.152:3000",  # Alternative Pi IP frontend port
+        "*"  # Allow all origins (for development)
     ],
     allow_credentials=True,
     allow_methods=["*"],
