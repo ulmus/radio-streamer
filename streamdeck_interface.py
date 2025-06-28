@@ -101,7 +101,16 @@ class StreamDeckController:
             self._clear_button(i)
 
         # Set up station buttons
-        stations = self.media_player.get_stations()
+        stations = {}
+        # Get radio stations from media objects
+        for media_id, media_obj in self.media_player.get_media_objects().items():
+            if media_obj.media_type == MediaType.RADIO:
+                stations[media_id] = {
+                    "name": media_obj.name,
+                    "url": media_obj.url,
+                    "description": media_obj.description,
+                }
+
         button_index = 0  # Start from first button (no control buttons anymore)
 
         self.station_buttons.clear()
@@ -132,16 +141,17 @@ class StreamDeckController:
             try:
                 # Check if this is the currently playing station
                 status = self.media_player.get_status()
-                if status.current_station == station_id and status.state in [
-                    PlayerState.PLAYING,
-                    PlayerState.LOADING,
-                ]:
+                if (
+                    status.current_media
+                    and status.current_media.id == station_id
+                    and status.state in [PlayerState.PLAYING, PlayerState.LOADING]
+                ):
                     # If pressing the currently playing/loading station, stop it
                     self.media_player.stop()
                     logger.info(f"Stopped currently playing station: {station_id}")
                 else:
                     # Otherwise, start playing the selected station
-                    self.media_player.play_station(station_id)
+                    self.media_player.play_media(station_id)
                     logger.info(f"Playing station: {station_id}")
             except Exception as e:
                 logger.error(f"Failed to handle station button {station_id}: {e}")
@@ -173,7 +183,16 @@ class StreamDeckController:
     ):
         """Update the image for a specific button"""
         try:
-            stations = self.media_player.get_stations()
+            # Get stations from media objects
+            stations = {}
+            for media_id, media_obj in self.media_player.get_media_objects().items():
+                if media_obj.media_type == MediaType.RADIO:
+                    stations[media_id] = {
+                        "name": media_obj.name,
+                        "url": media_obj.url,
+                        "description": media_obj.description,
+                    }
+
             if station_id not in stations:
                 return
 
@@ -185,7 +204,7 @@ class StreamDeckController:
                 state = force_state
             else:
                 status = self.media_player.get_status()
-                if status.current_station == station_id:
+                if status.current_media and status.current_media.id == station_id:
                     if status.state == PlayerState.PLAYING:
                         state = "playing"
                     elif status.state == PlayerState.LOADING:
@@ -315,7 +334,16 @@ class StreamDeckController:
                 return image_path
 
         # Try with category prefix (e.g., swedish_radio_p1.png)
-        stations = self.media_player.get_stations()
+        # Get stations from media objects
+        stations = {}
+        for media_id, media_obj in self.media_player.get_media_objects().items():
+            if media_obj.media_type == MediaType.RADIO:
+                stations[media_id] = {
+                    "name": media_obj.name,
+                    "url": media_obj.url,
+                    "description": media_obj.description,
+                }
+
         if station_id in stations:
             for ext in [".png", ".jpg", ".jpeg", ".gif", ".webp"]:
                 image_path = os.path.join(

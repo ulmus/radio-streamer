@@ -1,6 +1,6 @@
 import threading
 import time
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional
 from enum import Enum
 from pathlib import Path
 
@@ -61,11 +61,25 @@ class Album(BaseModel):
     track_count: int
 
 
+class MediaObject(BaseModel):
+    """Represents a media object that can be a radio channel or an album."""
+
+    id: str
+    name: str
+    media_type: MediaType
+    path: str = ""  # URL for radio, folder path for albums
+    image_path: str = ""
+    description: Optional[str] = None
+    # For radio stations
+    url: Optional[str] = None
+    # For albums
+    album: Optional[Album] = None
+    current_track_position: int = 0
+
+
 class PlayerStatus(BaseModel):
     state: PlayerState
-    media_type: MediaType
-    current_station: Optional[str] = None
-    current_album: Optional[str] = None
+    current_media: Optional[MediaObject] = None
     current_track: Optional[Track] = None
     track_position: int = 0
     volume: float
@@ -78,86 +92,43 @@ class MediaPlayer:
         self.state = PlayerState.STOPPED
         self.volume = 0.7
         self.error_message = None
-        self.media_type = MediaType.RADIO
-        
-        # Radio-specific state
-        self.current_station = None
-        self.stations = SWEDISH_STATIONS.copy()
-        
-        # Album-specific state
+
+        # Media objects management
+        self.media_objects: Dict[str, MediaObject] = {}
+        self.current_media: Optional[MediaObject] = None
+        self.current_track: Optional[Track] = None
+
+        # Album-specific state for internal use
         self.music_folder = Path(music_folder)
         self.albums: Dict[str, Album] = {}
-        self.current_album = None
-        self.current_track = None
-        self.track_position = 0
-        
+
         # VLC setup
         self._vlc_instance = vlc.Instance("--intf", "dummy")
         if self._vlc_instance is None:
             raise RuntimeError("Failed to create VLC instance")
         self._player = self._vlc_instance.media_player_new()
-        
+
         # Threading
         self._playback_thread = None
         self._stop_flag = threading.Event()
-        
-        # Load albums on initialization
+
+        # Load predefined stations and albums
+        self._load_predefined_stations()
         self.load_albums()
 
-    # Radio functionality
-    def add_station(self, station_id: str, station: RadioStation) -> bool:
-        """Add a new radio station"""
-        try:
-            self.stations[station_id] = {
-                "name": station.name,
-                "url": str(station.url),
-                "description": station.description if station.description is not None else "",
-            }
-            return True
-        except Exception as e:
-            self.error_message = f"Failed to add station: {str(e)}"
-            return False
-
-    def remove_station(self, station_id: str) -> bool:
-        """Remove a radio station"""
-        if station_id in SWEDISH_STATIONS:
-            self.error_message = "Cannot remove predefined Swedish stations"
-            return False
-
-        if station_id in self.stations:
-            del self.stations[station_id]
-            if self.current_station == station_id and self.media_type == MediaType.RADIO:
-                self.stop()
-            return True
-        return False
-
-    def play_station(self, station_id: str) -> bool:
-        """Start playing a radio station"""
-        if station_id not in self.stations:
-            self.error_message = f"Station '{station_id}' not found"
-            self.state = PlayerState.ERROR
-            return False
-
-        # Stop current playback
-        self.stop()
-
-        self.state = PlayerState.LOADING
-        self.media_type = MediaType.RADIO
-        self.current_station = station_id
-        self.current_album = None
-        self.current_track = None
-        self.track_position = 0
-        self.error_message = None
-
-        # Start streaming in a separate thread
-        self._stop_flag.clear()
-        self._playback_thread = threading.Thread(
-            target=self._stream_radio, args=(self.stations[station_id]["url"],)
-        )
-        self._playback_thread.daemon = True
-        self._playback_thread.start()
-
-        return True
+    def _load_predefined_stations(self):
+        """Load predefined Swedish radio stations as MediaObjects."""
+        for station_id, station_data in SWEDISH_STATIONS.items():
+            image_path = f"images/stations/{station_id}.png"
+            media_obj = MediaObject(
+                id=station_id,
+                name=station_data["name"],
+                media_type=MediaType.RADIO,
+                url=station_data["url"],
+                description=station_data.get("description", ""),
+                image_path=image_path,
+            )
+            self.media_objects[station_id] = media_obj
 
     def _stream_radio(self, url: str):
         """Stream radio from URL (runs in separate thread)"""
@@ -174,7 +145,7 @@ class MediaPlayer:
 
             time.sleep(1)
 
-            if self._player.get_state() == vlc.State.Playing:
+            if self._player.get_state() == vlc.State.Playing:  # type: ignore
                 self.state = PlayerState.PLAYING
             else:
                 self.state = PlayerState.ERROR
@@ -183,8 +154,8 @@ class MediaPlayer:
 
             # Keep the thread alive while playing
             while not self._stop_flag.is_set() and self._player.get_state() in [
-                vlc.State.Playing,
-                vlc.State.Buffering,
+                vlc.State.Playing,  # type: ignore
+                vlc.State.Buffering,  # type: ignore
             ]:
                 time.sleep(0.1)
 
@@ -192,26 +163,38 @@ class MediaPlayer:
             self.error_message = f"Streaming error: {str(e)}"
             self.state = PlayerState.ERROR
 
-    def get_stations(self) -> Dict:
-        """Get all available stations"""
-        return self.stations.copy()
-
     # Album functionality
     def load_albums(self) -> bool:
         """Load available albums from the music folder."""
         try:
             if not self.music_folder.exists():
-                self.error_message = f"The music folder '{self.music_folder}' does not exist."
+                self.error_message = (
+                    f"The music folder '{self.music_folder}' does not exist."
+                )
                 return False
 
             self.albums.clear()
-            
+
             for album_dir in self.music_folder.iterdir():
                 if album_dir.is_dir():
                     album = self._load_album(album_dir)
                     if album:
                         self.albums[album.folder_name] = album
-            
+                        # Create MediaObject for this album
+                        image_path = (
+                            album.album_art_path
+                            or f"images/albums/{album.folder_name}.png"
+                        )
+                        media_obj = MediaObject(
+                            id=f"album_{album.folder_name}",
+                            name=album.name,
+                            media_type=MediaType.ALBUM,
+                            path=str(album_dir),
+                            image_path=image_path,
+                            album=album,
+                        )
+                        self.media_objects[f"album_{album.folder_name}"] = media_obj
+
             return True
         except Exception as e:
             self.error_message = f"Failed to load albums: {str(e)}"
@@ -223,21 +206,21 @@ class MediaPlayer:
             mp3_files = list(album_dir.glob("*.mp3"))
             if not mp3_files:
                 return None
-            
+
             tracks = []
             for mp3_file in mp3_files:
                 track = self._parse_track(mp3_file)
                 if track:
                     tracks.append(track)
-            
+
             if not tracks:
                 return None
-            
+
             tracks.sort(key=lambda t: t.track_number)
-            
+
             album_art_path = album_dir / "album_art.png"
             album_art = str(album_art_path) if album_art_path.exists() else None
-            
+
             return Album(
                 name=album_dir.name,
                 folder_name=album_dir.name,
@@ -253,9 +236,9 @@ class MediaPlayer:
         """Parse track information from filename (NN.Song Title.mp3)."""
         try:
             filename = mp3_file.stem
-            
+
             # Split on first dot to separate track number from title
-            parts = filename.split('.', 1)
+            parts = filename.split(".", 1)
             if len(parts) != 2:
                 return Track(
                     track_number=0,
@@ -263,14 +246,14 @@ class MediaPlayer:
                     filename=mp3_file.name,
                     file_path=str(mp3_file),
                 )
-            
+
             track_number_str, title = parts
-            
+
             try:
                 track_number = int(track_number_str.strip())
             except ValueError:
                 track_number = 0
-            
+
             return Track(
                 track_number=track_number,
                 title=title.strip(),
@@ -281,90 +264,60 @@ class MediaPlayer:
             print(f"Error parsing track {mp3_file}: {e}")
             return None
 
-    def get_albums(self) -> Dict[str, Album]:
-        """Get all available albums."""
-        return self.albums.copy()
-
-    def get_album(self, album_name: str) -> Optional[Album]:
-        """Get a specific album by name."""
-        return self.albums.get(album_name)
-
-    def play_album(self, album_name: str, track_number: int = 1) -> bool:
-        """Start playing an album from a specific track."""
-        if album_name not in self.albums:
-            self.error_message = f"Album '{album_name}' not found"
-            self.state = PlayerState.ERROR
-            return False
-        
-        album = self.albums[album_name]
-        if track_number < 1 or track_number > len(album.tracks):
-            self.error_message = f"Track number {track_number} is out of range for album '{album_name}'"
-            self.state = PlayerState.ERROR
-            return False
-        
-        # Stop current playback
-        self.stop()
-        
-        self.state = PlayerState.LOADING
-        self.media_type = MediaType.ALBUM
-        self.current_station = None
-        self.current_album = album_name
-        self.track_position = track_number - 1
-        self.current_track = album.tracks[self.track_position]
-        self.error_message = None
-        
-        # Start playing in a separate thread
-        self._stop_flag.clear()
-        self._playback_thread = threading.Thread(target=self._play_album_thread)
-        self._playback_thread.daemon = True
-        self._playback_thread.start()
-        
-        return True
-
     def _play_album_thread(self):
         """Play the current album in a separate thread."""
         try:
-            album = self.albums[self.current_album]
-            
-            while (self.track_position < len(album.tracks) and not self._stop_flag.is_set()):
-                track = album.tracks[self.track_position]
+            if not self.current_media or not self.current_media.album:
+                self.error_message = "No album selected for playback"
+                self.state = PlayerState.ERROR
+                return
+
+            album = self.current_media.album
+
+            while (
+                self.current_media.current_track_position < len(album.tracks)
+                and not self._stop_flag.is_set()
+            ):
+                track = album.tracks[self.current_media.current_track_position]
                 self.current_track = track
-                
+
+                if not self._vlc_instance:
+                    # If VLC instance is not initialized, set error state
+                    self.error_message = "VLC instance is not initialized"
+                    self.state = PlayerState.ERROR
+                    return
                 media = self._vlc_instance.media_new(track.file_path)
                 self._player.set_media(media)
                 self._player.audio_set_volume(int(self.volume * 100))
                 self._player.play()
-                
+
                 time.sleep(0.5)
-                
-                if self._player.get_state() == vlc.State.Playing:
+
+                if self._player.get_state() == vlc.State.Playing:  # type: ignore
                     self.state = PlayerState.PLAYING
                 else:
                     self.state = PlayerState.ERROR
                     self.error_message = f"Failed to play track: {track.title}"
                     return
-                
-                while (not self._stop_flag.is_set() and 
-                       self._player.get_state() in [vlc.State.Playing, vlc.State.Buffering]):
+
+                while not self._stop_flag.is_set() and self._player.get_state() in [
+                    vlc.State.Playing,  # type: ignore
+                    vlc.State.Buffering,  # type: ignore
+                ]:
                     time.sleep(0.1)
-                
+
                 if not self._stop_flag.is_set():
-                    self.track_position += 1
-            
+                    self.current_media.current_track_position += 1
+
             # Album finished
             if not self._stop_flag.is_set():
                 self.state = PlayerState.STOPPED
-                self.current_album = None
+                self.current_media = None
                 self.current_track = None
-                self.track_position = 0
-                
+
         except Exception as e:
             self.error_message = f"Playback error: {str(e)}"
             self.state = PlayerState.ERROR
-
-    def play_track(self, album_name: str, track_number: int) -> bool:
-        """Play a specific track from an album."""
-        return self.play_album(album_name, track_number)
 
     # Common playback controls
     def stop(self) -> bool:
@@ -377,10 +330,8 @@ class MediaPlayer:
                 self._playback_thread.join(timeout=2.0)
 
             self.state = PlayerState.STOPPED
-            self.current_station = None
-            self.current_album = None
+            self.current_media = None
             self.current_track = None
-            self.track_position = 0
             return True
         except Exception as e:
             self.error_message = f"Stop error: {str(e)}"
@@ -424,34 +375,118 @@ class MediaPlayer:
     # Album-specific controls
     def next_track(self) -> bool:
         """Skip to next track in current album."""
-        if (self.media_type == MediaType.ALBUM and 
-            self.current_album and 
-            self.track_position < len(self.albums[self.current_album].tracks) - 1):
-            return self.play_album(self.current_album, self.track_position + 2)
+        if (
+            self.current_media
+            and self.current_media.media_type == MediaType.ALBUM
+            and self.current_media.album
+            and self.current_media.current_track_position
+            < len(self.current_media.album.tracks) - 1
+        ):
+            return self._play_album(
+                self.current_media, self.current_media.current_track_position + 2
+            )
         return False
 
     def previous_track(self) -> bool:
         """Go to previous track in current album."""
-        if (self.media_type == MediaType.ALBUM and 
-            self.current_album and 
-            self.track_position > 0):
-            return self.play_album(self.current_album, self.track_position)
+        if (
+            self.current_media
+            and self.current_media.media_type == MediaType.ALBUM
+            and self.current_media.album
+            and self.current_media.current_track_position > 0
+        ):
+            return self._play_album(
+                self.current_media, self.current_media.current_track_position
+            )
         return False
 
     def get_status(self) -> PlayerStatus:
         """Get current player status"""
+        track_position = 0
+        if self.current_media and self.current_media.media_type == MediaType.ALBUM:
+            track_position = (
+                self.current_media.current_track_position + 1
+                if self.current_track
+                else 0
+            )
+
         return PlayerStatus(
             state=self.state,
-            media_type=self.media_type,
-            current_station=self.current_station,
-            current_album=self.current_album,
+            current_media=self.current_media,
             current_track=self.current_track,
-            track_position=self.track_position + 1 if self.current_track else 0,
+            track_position=track_position,
             volume=self.volume,
             error_message=self.error_message,
         )
 
-    # Legacy compatibility methods
-    def play(self, station_id: str) -> bool:
-        """Legacy method for playing radio stations"""
-        return self.play_station(station_id)
+    # Core media management methods
+    def get_media_objects(self) -> Dict[str, MediaObject]:
+        """Get all available media objects."""
+        return self.media_objects.copy()
+
+    def get_media_object(self, media_id: str) -> Optional[MediaObject]:
+        """Get a specific media object by ID."""
+        return self.media_objects.get(media_id)
+
+    def play_media(self, media_id: str, track_number: int = 1) -> bool:
+        """Play a media object (radio station or album)."""
+        if media_id not in self.media_objects:
+            self.error_message = f"Media '{media_id}' not found"
+            self.state = PlayerState.ERROR
+            return False
+
+        media_obj = self.media_objects[media_id]
+
+        # Stop current playback
+        self.stop()
+
+        self.state = PlayerState.LOADING
+        self.current_media = media_obj
+        self.current_track = None
+        self.error_message = None
+
+        if media_obj.media_type == MediaType.RADIO:
+            return self._play_radio(media_obj)
+        elif media_obj.media_type == MediaType.ALBUM:
+            return self._play_album(media_obj, track_number)
+
+        return False
+
+    def _play_radio(self, media_obj: MediaObject) -> bool:
+        """Start playing a radio station."""
+        if not media_obj.url:
+            self.error_message = "Radio station URL not found"
+            self.state = PlayerState.ERROR
+            return False
+
+        # Start streaming in a separate thread
+        self._stop_flag.clear()
+        self._playback_thread = threading.Thread(
+            target=self._stream_radio, args=(media_obj.url,)
+        )
+        self._playback_thread.daemon = True
+        self._playback_thread.start()
+        return True
+
+    def _play_album(self, media_obj: MediaObject, track_number: int = 1) -> bool:
+        """Start playing an album from a specific track."""
+        if not media_obj.album:
+            self.error_message = "Album data not found"
+            self.state = PlayerState.ERROR
+            return False
+
+        album = media_obj.album
+        if track_number < 1 or track_number > len(album.tracks):
+            self.error_message = f"Track number {track_number} is out of range"
+            self.state = PlayerState.ERROR
+            return False
+
+        media_obj.current_track_position = track_number - 1
+        self.current_track = album.tracks[media_obj.current_track_position]
+
+        # Start playing in a separate thread
+        self._stop_flag.clear()
+        self._playback_thread = threading.Thread(target=self._play_album_thread)
+        self._playback_thread.daemon = True
+        self._playback_thread.start()
+        return True
