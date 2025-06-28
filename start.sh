@@ -28,8 +28,8 @@ BACKEND_PID=$!
 # Wait a moment for backend to start
 sleep 3
 
-# Start frontend in a new terminal/background
-echo "🎨 Starting frontend on http://0.0.0.0:5173 (accessible via raspberrypi.local:5173)..."
+# Start frontend in production mode
+echo "🎨 Building and starting frontend in production mode..."
 cd radio-frontend
 
 # Check if node_modules exists, if not install dependencies
@@ -38,12 +38,18 @@ if [ ! -d "node_modules" ]; then
     npm install
 fi
 
-npm run dev &
+# Build the frontend for production
+echo "🔨 Building frontend for production..."
+npm run build
+
+# Start the production server
+echo "🚀 Starting frontend production server on http://0.0.0.0:4173 (accessible via raspberrypi.local:4173)..."
+npm run preview &
 FRONTEND_PID=$!
 
 echo ""
 echo "✅ Radio Streamer is now running!"
-echo "🎵 Frontend: http://raspberrypi.local:5173"
+echo "🎵 Frontend: http://raspberrypi.local:4173"
 echo "🔌 Backend API: http://raspberrypi.local:8000"
 echo "📚 API Docs: http://raspberrypi.local:8000/docs"
 echo ""

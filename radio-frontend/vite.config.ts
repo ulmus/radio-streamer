@@ -15,6 +15,10 @@ export default defineConfig({
     allowedHosts: ['raspberrypi.local'],
     port: 5173
   },
+  preview: {
+    host: '0.0.0.0',  // Bind to all interfaces for production preview
+    port: 4173
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url))
