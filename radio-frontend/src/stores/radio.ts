@@ -7,7 +7,11 @@ export const useRadioStore = defineStore('radio', () => {
   // State
   const status = ref<PlayerStatus>({
     state: 'stopped',
+    media_type: 'radio',
     current_station: null,
+    current_album: null,
+    current_track: null,
+    track_position: 0,
     volume: 0.7,
     error_message: undefined,
   })

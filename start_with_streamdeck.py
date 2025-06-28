@@ -13,7 +13,7 @@ import sys
 import logging
 
 import uvicorn
-from radio import RadioStreamer
+from media_player import MediaPlayer
 from api import app
 
 try:
@@ -33,7 +33,7 @@ class RadioStreamerService:
     """Unified service that runs API server and Stream Deck interface"""
     
     def __init__(self):
-        self.radio = RadioStreamer()
+        self.media_player = MediaPlayer()
         self.streamdeck_controller = None
         self.api_server = None
         self.running = False
@@ -45,8 +45,8 @@ class RadioStreamerService:
             return False
         
         try:
-            self.streamdeck_controller = StreamDeckController(self.radio)
-            if self.streamdeck_controller.initialize():
+            self.streamdeck_controller = StreamDeckController(self.media_player)
+            if self.streamdeck_controller.deck is not None:
                 logger.info("✅ Stream Deck interface started successfully")
                 return True
             else:
@@ -120,8 +120,8 @@ class RadioStreamerService:
             self.streamdeck_controller.close()
             logger.info("✅ Stream Deck interface stopped")
         
-        # Stop radio playback
-        self.radio.stop()
+        # Stop media playback
+        self.media_player.stop()
         logger.info("✅ Radio playback stopped")
         
         logger.info("👋 Radio Streamer Service stopped")

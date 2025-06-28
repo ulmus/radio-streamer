@@ -21,7 +21,7 @@ from textual.reactive import reactive
 from textual.binding import Binding
 from textual.message import Message
 
-from radio import RadioStreamer, PlayerState
+from media_player import MediaPlayer, PlayerState, MediaType
 
 class StationButton(Button):
     """Custom button for radio stations with state management"""
@@ -149,7 +149,7 @@ class RadioStreamerTUI(App):
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.radio = RadioStreamer()
+        self.media_player = MediaPlayer()
         self.station_buttons: Dict[str, StationButton] = {}
         self.status_panel = None
         self.volume_control = None
@@ -168,7 +168,7 @@ class RadioStreamerTUI(App):
     def create_station_panel(self) -> Container:
         """Create the station buttons panel"""
         buttons = []
-        stations = self.radio.get_stations()
+        stations = self.media_player.get_stations()
         
         for station_id, info in stations.items():
             button = StationButton(
@@ -217,7 +217,7 @@ class RadioStreamerTUI(App):
     
     def update_status(self) -> None:
         """Update the status panel with current radio state"""
-        status = self.radio.get_status()
+        status = self.media_player.get_status()
         
         if self.status_panel:
             self.status_panel.current_station = status.current_station or "None"
@@ -263,17 +263,17 @@ class RadioStreamerTUI(App):
     
     def play_station(self, station_id: str) -> None:
         """Play a specific radio station"""
-        if self.radio.play(station_id):
+        if self.media_player.play_station(station_id):
             self.notify(f"Playing {station_id}", severity="information")
         else:
             self.notify(f"Failed to play {station_id}", severity="error")
     
     def adjust_volume(self, delta: float) -> None:
         """Adjust volume by delta amount"""
-        current_volume = self.radio.get_status().volume
+        current_volume = self.media_player.get_status().volume
         new_volume = max(0.0, min(1.0, current_volume + delta))
         
-        if self.radio.set_volume(new_volume):
+        if self.media_player.set_volume(new_volume):
             self.notify(f"Volume: {int(new_volume * 100)}%", severity="information")
         else:
             self.notify("Failed to adjust volume", severity="error")
@@ -281,22 +281,22 @@ class RadioStreamerTUI(App):
     # Action methods for key bindings
     def action_stop(self) -> None:
         """Stop playback"""
-        if self.radio.stop():
+        if self.media_player.stop():
             self.notify("Playback stopped", severity="information")
         else:
             self.notify("Failed to stop playback", severity="error")
     
     def action_pause(self) -> None:
         """Pause or resume playback"""
-        status = self.radio.get_status()
+        status = self.media_player.get_status()
         
         if status.state == PlayerState.PLAYING:
-            if self.radio.pause():
+            if self.media_player.pause():
                 self.notify("Playback paused", severity="information")
             else:
                 self.notify("Failed to pause", severity="error")
         elif status.state == PlayerState.PAUSED:
-            if self.radio.resume():
+            if self.media_player.resume():
                 self.notify("Playback resumed", severity="information")
             else:
                 self.notify("Failed to resume", severity="error")
@@ -320,7 +320,7 @@ class RadioStreamerTUI(App):
     
     def action_quit(self) -> None:
         """Quit the application"""
-        self.radio.stop()
+        self.media_player.stop()
         self.exit()
 
 def main():

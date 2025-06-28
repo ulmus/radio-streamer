@@ -88,6 +88,9 @@ build/
 dist/
 out/
 
+# music files
+music/
+
 # Temporary files
 *.tmp
 *.temp

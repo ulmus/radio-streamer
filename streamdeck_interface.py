@@ -26,7 +26,7 @@ except ImportError:
         "StreamDeck library not available. Stream Deck interface will be disabled."
     )
 
-from radio import RadioStreamer, PlayerState
+from media_player import MediaPlayer, PlayerState, MediaType
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -36,13 +36,13 @@ logger = logging.getLogger(__name__)
 class StreamDeckController:
     """Controls radio stations via Stream Deck interface"""
 
-    def __init__(self, radio_streamer: RadioStreamer):
+    def __init__(self, media_player: MediaPlayer):
         if not STREAMDECK_AVAILABLE:
             raise RuntimeError(
                 "StreamDeck library not available. Please install streamdeck package."
             )
 
-        self.radio = radio_streamer
+        self.media_player = media_player
         self.deck = None
         self.station_buttons = {}  # Maps button index to station_id
         self.current_playing_button = None
@@ -101,7 +101,7 @@ class StreamDeckController:
             self._clear_button(i)
 
         # Set up station buttons
-        stations = self.radio.get_stations()
+        stations = self.media_player.get_stations()
         button_index = 0  # Start from first button (no control buttons anymore)
 
         self.station_buttons.clear()
@@ -131,17 +131,17 @@ class StreamDeckController:
             station_id = self.station_buttons[key]
             try:
                 # Check if this is the currently playing station
-                status = self.radio.get_status()
+                status = self.media_player.get_status()
                 if status.current_station == station_id and status.state in [
                     PlayerState.PLAYING,
                     PlayerState.LOADING,
                 ]:
                     # If pressing the currently playing/loading station, stop it
-                    self.radio.stop()
+                    self.media_player.stop()
                     logger.info(f"Stopped currently playing station: {station_id}")
                 else:
                     # Otherwise, start playing the selected station
-                    self.radio.play(station_id)
+                    self.media_player.play_station(station_id)
                     logger.info(f"Playing station: {station_id}")
             except Exception as e:
                 logger.error(f"Failed to handle station button {station_id}: {e}")
@@ -156,7 +156,7 @@ class StreamDeckController:
         """Background loop to update button states"""
         while self.running:
             try:
-                status = self.radio.get_status()
+                status = self.media_player.get_status()
                 self._update_button_states(status)
                 time.sleep(0.5)  # Update twice per second
             except Exception as e:
@@ -173,7 +173,7 @@ class StreamDeckController:
     ):
         """Update the image for a specific button"""
         try:
-            stations = self.radio.get_stations()
+            stations = self.media_player.get_stations()
             if station_id not in stations:
                 return
 
@@ -184,7 +184,7 @@ class StreamDeckController:
             if force_state:
                 state = force_state
             else:
-                status = self.radio.get_status()
+                status = self.media_player.get_status()
                 if status.current_station == station_id:
                     if status.state == PlayerState.PLAYING:
                         state = "playing"
@@ -315,14 +315,14 @@ class StreamDeckController:
                 return image_path
 
         # Try with category prefix (e.g., swedish_radio_p1.png)
-        for category in self.radio.stations:
-            if station_id in self.radio.stations[category]:
-                for ext in [".png", ".jpg", ".jpeg", ".gif", ".webp"]:
-                    image_path = os.path.join(
-                        images_dir, f"{category}_{station_id}{ext}"
-                    )
-                    if os.path.exists(image_path):
-                        return image_path
+        stations = self.media_player.get_stations()
+        if station_id in stations:
+            for ext in [".png", ".jpg", ".jpeg", ".gif", ".webp"]:
+                image_path = os.path.join(
+                    images_dir, f"swedish_radio_{station_id}{ext}"
+                )
+                if os.path.exists(image_path):
+                    return image_path
 
         return None
 

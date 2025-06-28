@@ -1,8 +1,8 @@
 """
-Radio Streamer - A FastAPI application for streaming internet radio stations
+Radio Streamer - A FastAPI application for streaming internet radio and albums
 
 This package contains:
-- radio.py: RadioStreamer class and models
+- media_player.py: MediaPlayer class and models for both radio and albums
 - api.py: FastAPI application and endpoints
 - main.py: Main entry point
 """
