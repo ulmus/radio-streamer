@@ -4,6 +4,11 @@
     "update_interval": 0.5,
     "button_layout": {
       "max_buttons": 15
+    },
+    "carousel": {
+      "infinite_wrap": true,
+      "auto_reset_seconds": 30,
+      "default_position": 0
     }
   },
   "ui_config": {

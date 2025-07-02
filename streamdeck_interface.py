@@ -52,6 +52,17 @@ class StreamDeckController:
         self.carousel_offset = 0  # Current position in carousel
         self.carousel_size = 3  # Number of carousel buttons (0, 1, 2)
 
+        # Auto-reset functionality
+        self.last_carousel_interaction = time.time()
+        self.auto_reset_enabled = True
+
+        # Get carousel configuration
+        streamdeck_config = self.config_manager.get_streamdeck_config()
+        carousel_config = streamdeck_config.get("carousel", {})
+        self.infinite_wrap = carousel_config.get("infinite_wrap", True)
+        self.auto_reset_seconds = carousel_config.get("auto_reset_seconds", 30)
+        self.default_position = carousel_config.get("default_position", 0)
+
         # Button layout: 0,1,2 = carousel, 3 = now playing, 4,5 = navigation
         self.CAROUSEL_BUTTONS = [0, 1, 2]
         self.NOW_PLAYING_BUTTON = 3
@@ -180,6 +191,9 @@ class StreamDeckController:
 
         # Handle carousel buttons (0, 1, 2)
         if key in self.CAROUSEL_BUTTONS:
+            # Update last interaction time for auto-reset
+            self.last_carousel_interaction = time.time()
+
             carousel_index = key  # Button 0 = index 0, Button 1 = index 1, etc.
             media_index = self.carousel_offset + carousel_index
 
@@ -245,6 +259,9 @@ class StreamDeckController:
         while self.running:
             try:
                 status = self.media_player.get_status()
+                # Check for auto-reset
+                self._check_auto_reset()
+
                 self._update_button_states(status)
                 time.sleep(update_interval)
             except Exception as e:
@@ -496,13 +513,25 @@ class StreamDeckController:
     def _update_carousel_buttons(self):
         """Update the carousel buttons (0, 1, 2) with current media objects"""
         for i, button_idx in enumerate(self.CAROUSEL_BUTTONS):
-            media_index = self.carousel_offset + i
-            if media_index < len(self.all_media_objects):
+            if len(self.all_media_objects) == 0:
+                # No media objects available
+                self._create_empty_button(button_idx)
+                continue
+
+            if self.infinite_wrap:
+                # With infinite wrap, always show media objects by wrapping around
+                media_index = (self.carousel_offset + i) % len(self.all_media_objects)
                 media_id = self.all_media_objects[media_index]
                 self._update_button_image(button_idx, media_id)
             else:
-                # Empty slot
-                self._create_empty_button(button_idx)
+                # Original bounded mode behavior
+                media_index = self.carousel_offset + i
+                if media_index < len(self.all_media_objects):
+                    media_id = self.all_media_objects[media_index]
+                    self._update_button_image(button_idx, media_id)
+                else:
+                    # Empty slot
+                    self._create_empty_button(button_idx)
 
     def _update_now_playing_button(self):
         """Update the now playing button (3) with album art and play/pause overlay"""
@@ -520,23 +549,34 @@ class StreamDeckController:
 
     def _update_navigation_buttons(self):
         """Update the navigation buttons (4, 5)"""
-        # Previous button (4)
-        prev_color = (
-            self.colors.get("available", (0, 100, 200))
-            if self.carousel_offset > 0
-            else self.colors.get("inactive", (50, 50, 50))
-        )
+        if len(self.all_media_objects) == 0:
+            # No media objects - disable navigation
+            prev_color = self.colors.get("inactive", (50, 50, 50))
+            next_color = self.colors.get("inactive", (50, 50, 50))
+        elif self.infinite_wrap:
+            # With infinite wrap, navigation is always available
+            prev_color = self.colors.get("available", (0, 100, 200))
+            next_color = self.colors.get("available", (0, 100, 200))
+        else:
+            # Original bounded mode - check boundaries
+            prev_color = (
+                self.colors.get("available", (0, 100, 200))
+                if self.carousel_offset > 0
+                else self.colors.get("inactive", (50, 50, 50))
+            )
+
+            max_offset = max(0, len(self.all_media_objects) - self.carousel_size)
+            next_color = (
+                self.colors.get("available", (0, 100, 200))
+                if self.carousel_offset < max_offset
+                else self.colors.get("inactive", (50, 50, 50))
+            )
+
+        # Create and set button images
         prev_image = self._create_arrow_button("◄", prev_color)
         if self.deck:
             self.deck.set_key_image(self.PREV_BUTTON, prev_image)
 
-        # Next button (5)
-        max_offset = max(0, len(self.all_media_objects) - self.carousel_size)
-        next_color = (
-            self.colors.get("available", (0, 100, 200))
-            if self.carousel_offset < max_offset
-            else self.colors.get("inactive", (50, 50, 50))
-        )
         next_image = self._create_arrow_button("►", next_color)
         if self.deck:
             self.deck.set_key_image(self.NEXT_BUTTON, next_image)
@@ -621,14 +661,33 @@ class StreamDeckController:
 
     def _navigate_carousel(self, direction: int):
         """Navigate the carousel in the given direction (-1 for prev, 1 for next)"""
-        if direction < 0:  # Previous
-            self.carousel_offset = max(0, self.carousel_offset - 1)
-        else:  # Next
-            max_offset = max(0, len(self.all_media_objects) - self.carousel_size)
-            self.carousel_offset = min(max_offset, self.carousel_offset + 1)
+        if len(self.all_media_objects) == 0:
+            return
+
+        # Update last interaction time
+        self.last_carousel_interaction = time.time()
+
+        if self.infinite_wrap:
+            # Infinite wrapping mode
+            if direction < 0:  # Previous
+                self.carousel_offset = (self.carousel_offset - 1) % len(
+                    self.all_media_objects
+                )
+            else:  # Next
+                self.carousel_offset = (self.carousel_offset + 1) % len(
+                    self.all_media_objects
+                )
+        else:
+            # Original bounded mode
+            if direction < 0:  # Previous
+                self.carousel_offset = max(0, self.carousel_offset - 1)
+            else:  # Next
+                max_offset = max(0, len(self.all_media_objects) - self.carousel_size)
+                self.carousel_offset = min(max_offset, self.carousel_offset + 1)
 
         # Update carousel and navigation buttons
         self._update_carousel_buttons()
+        self._update_navigation_buttons()
         self._update_navigation_buttons()
 
     def _update_now_playing_with_overlay(self, media_id: str, player_state):
@@ -700,7 +759,9 @@ class StreamDeckController:
                 draw.text((x, y), display_name, font=font, fill="white")
 
             # Add play/pause overlay icon
-            self._add_playback_overlay(background_image, player_state)
+            background_image = self._add_playback_overlay(
+                background_image, player_state
+            )
 
             # Convert to Stream Deck format
             if PILHelper is None:
@@ -726,32 +787,38 @@ class StreamDeckController:
         else:
             return self.colors.get("available", (0, 100, 200))
 
-    def _add_playback_overlay(self, image: Image.Image, player_state):
-        """Add play/pause/loading overlay icon to the image"""
-        draw = ImageDraw.Draw(image)
-
+    def _add_playback_overlay(self, image: Image.Image, player_state) -> Image.Image:
+        """Add play/pause/loading overlay icon to the image and return the modified image"""
         # Calculate icon position (bottom-right corner)
-        icon_size = min(image.size) // 4  # Icon is 1/4 of button size
-        margin = 5
+        icon_size = (
+            min(image.size) // 3
+        )  # Make icon larger - 1/3 of button size instead of 1/4
+        margin = 3  # Smaller margin for more visibility
         icon_x = image.size[0] - icon_size - margin
         icon_y = image.size[1] - icon_size - margin
 
-        # Draw icon background circle
-        circle_color = (0, 0, 0, 180)  # Semi-transparent black
+        # Convert image to RGBA for proper alpha compositing
+        if image.mode != "RGBA":
+            image = image.convert("RGBA")
+
+        # Create icon background circle with transparency
         icon_bg = Image.new("RGBA", (icon_size, icon_size), (0, 0, 0, 0))
         icon_draw = ImageDraw.Draw(icon_bg)
-        icon_draw.ellipse([2, 2, icon_size - 2, icon_size - 2], fill=circle_color)
+
+        # Draw more opaque black circle background for better visibility
+        circle_color = (0, 0, 0, 220)  # More opaque black
+        icon_draw.ellipse([1, 1, icon_size - 1, icon_size - 1], fill=circle_color)
 
         # Draw the appropriate icon
-        icon_color = "white"
+        icon_color = (255, 255, 255, 255)  # White with full opacity
         center_x = icon_size // 2
         center_y = icon_size // 2
 
         if player_state == PlayerState.PLAYING:
-            # Draw pause icon (two vertical bars)
-            bar_width = icon_size // 6
+            # Draw pause icon (two vertical bars) - make them larger
+            bar_width = max(3, icon_size // 5)  # Wider bars
             bar_height = icon_size // 2
-            bar_spacing = icon_size // 8
+            bar_spacing = max(3, icon_size // 7)  # More spacing
 
             # Left bar
             left_x = center_x - bar_spacing - bar_width
@@ -778,8 +845,8 @@ class StreamDeckController:
             )
 
         elif player_state == PlayerState.PAUSED:
-            # Draw play icon (triangle)
-            triangle_size = icon_size // 3
+            # Draw play icon (triangle) - make it larger
+            triangle_size = icon_size // 2  # Bigger triangle
             points = [
                 (center_x - triangle_size // 2, center_y - triangle_size // 2),
                 (center_x - triangle_size // 2, center_y + triangle_size // 2),
@@ -788,17 +855,16 @@ class StreamDeckController:
             icon_draw.polygon(points, fill=icon_color)
 
         elif player_state == PlayerState.LOADING:
-            # Draw loading icon (3 dots in a circle pattern)
-            dot_radius = icon_size // 12
+            # Draw loading icon (3 dots in a circle pattern) - make them larger
+            dot_radius = max(2, icon_size // 8)  # Bigger dots
             for i in range(3):
-                # Position dots in a triangular pattern
+                # Position dots in a triangular pattern (120 degrees apart)
                 dot_x = center_x + int(
-                    (icon_size // 4) * 0.7 * (1 if i == 0 else 0.5 if i == 1 else -0.5)
+                    (icon_size // 5)
+                    * (0.866 if i == 0 else -0.433 if i == 1 else -0.433)
                 )
                 dot_y = center_y + int(
-                    (icon_size // 4)
-                    * 0.7
-                    * (0 if i == 0 else 0.866 if i == 1 else -0.866)
+                    (icon_size // 5) * (0 if i == 0 else 0.75 if i == 1 else -0.75)
                 )
                 icon_draw.ellipse(
                     [
@@ -810,15 +876,48 @@ class StreamDeckController:
                     fill=icon_color,
                 )
 
-        # Paste the icon onto the main image
-        if image.mode != "RGBA":
-            image = image.convert("RGBA")
+        # Composite the icon onto the main image using alpha blending
         image.paste(icon_bg, (icon_x, icon_y), icon_bg)
 
-        # Convert back to RGB if needed
+        # Convert back to RGB for StreamDeck compatibility
         if image.mode == "RGBA":
+            # Create RGB image with proper background
             rgb_image = Image.new("RGB", image.size, (0, 0, 0))
-            rgb_image.paste(
-                image, mask=image.split()[-1] if len(image.split()) == 4 else None
+            rgb_image.paste(image, mask=image.split()[-1])
+            return rgb_image
+
+        return image
+
+    def _check_auto_reset(self):
+        """Check if carousel should auto-reset to default position"""
+        if not self.auto_reset_enabled or self.auto_reset_seconds <= 0:
+            return
+
+        current_time = time.time()
+        time_since_last_interaction = current_time - self.last_carousel_interaction
+
+        # Check if we should reset and we're not already at default position
+        if (
+            time_since_last_interaction >= self.auto_reset_seconds
+            and self.carousel_offset != self.default_position
+        ):
+            logger.info(
+                f"Auto-resetting carousel to position {self.default_position} after {self.auto_reset_seconds}s"
             )
-            image.paste(rgb_image)
+            self.carousel_offset = self.default_position
+            self.last_carousel_interaction = current_time  # Reset timer
+
+            # Update carousel and navigation buttons
+            self._update_carousel_buttons()
+            self._update_navigation_buttons()
+
+    def _reset_carousel_to_default(self):
+        """Manually reset carousel to default position"""
+        self.carousel_offset = self.default_position
+        self.last_carousel_interaction = time.time()
+
+        # Update carousel and navigation buttons
+        self._update_carousel_buttons()
+        self._update_navigation_buttons()
+
+        logger.info(f"Carousel reset to default position: {self.default_position}")
