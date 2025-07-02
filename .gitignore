@@ -94,3 +94,10 @@ music/
 # Temporary files
 *.tmp
 *.temp
+# Test artifacts
+htmlcov/
+.coverage
+.pytest_cache/
+tests_backup/
+*.pyc
+__pycache__/

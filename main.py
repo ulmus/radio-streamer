@@ -1,13 +1,21 @@
 #!/usr/bin/env python3
 """
-Radio Streamer API - Main entry point
-
-This is a simple entry point that imports the FastAPI app from api.py
-and runs it using uvicorn.
+Radio Streamer App Initialization
 """
 
-import uvicorn
-from api import app
+from app import initialize_streamdeck
 
-if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+initialize_streamdeck()
+# Keep the main thread alive to handle signals
+try:
+    while True:
+        # The StreamDeck controller runs in a background thread
+        # so we just need to keep the main thread alive.
+        time.sleep(1)
+except KeyboardInterrupt:
+    logging.info("Caught KeyboardInterrupt, shutting down...")
+finally:
+    if streamdeck_controller:
+        streamdeck_controller.close()
+    media_player.stop()
+    logging.info("Cleanup complete.")
