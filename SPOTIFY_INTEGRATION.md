@@ -7,6 +7,7 @@ The MediaPlayer system now supports **Spotify albums** as a third media type alo
 ## New Components Added
 
 ### 1. **Enhanced MediaType Enum**
+
 ```python
 class MediaType(str, Enum):
     RADIO = "radio"
@@ -15,6 +16,7 @@ class MediaType(str, Enum):
 ```
 
 ### 2. **Spotify-Specific Models**
+
 ```python
 class SpotifyTrack(BaseModel):
     track_number: int
@@ -35,6 +37,7 @@ class SpotifyAlbum(BaseModel):
 ```
 
 ### 3. **Updated MediaObject**
+
 ```python
 class MediaObject(BaseModel):
     # ... existing fields ...
@@ -46,15 +49,18 @@ class MediaObject(BaseModel):
 ### **MediaPlayer Enhancements**
 
 1. **Spotify Client Integration**
+
    - Optional Spotify client initialization with credentials
    - Graceful degradation when credentials not provided
 
 2. **Album Search**
+
    ```python
    results = player.search_spotify_albums("Abbey Road Beatles", limit=5)
    ```
 
 3. **Album Management**
+
    ```python
    player.add_spotify_album(album_id)     # Add to media library
    player.remove_spotify_album(album_id)  # Remove from library
@@ -70,11 +76,13 @@ class MediaObject(BaseModel):
 ### **Playback Features**
 
 1. **Dual Album Support**
+
    - `_play_local_album()` for local MP3 files
    - `_play_spotify_album()` for Spotify previews
    - Unified `_play_album_thread()` dispatcher
 
 2. **Track Navigation**
+
    - Supports both local and Spotify albums
    - Automatic track progression
    - Manual track skipping
@@ -87,12 +95,14 @@ class MediaObject(BaseModel):
 ## API Endpoints
 
 ### **New Spotify Endpoints**
+
 - `GET /spotify/search?query=<term>&limit=<num>` - Search albums
 - `POST /spotify/albums/{album_id}` - Add album
 - `DELETE /spotify/albums/{album_id}` - Remove album
 - `GET /spotify/albums` - List Spotify albums
 
 ### **Enhanced Existing Endpoints**
+
 - `GET /albums` - Now includes both local and Spotify albums
 - `POST /play/{media_id}` - Works with Spotify album IDs
 - `GET /media` - Lists all media including Spotify albums
@@ -100,6 +110,7 @@ class MediaObject(BaseModel):
 ## Usage Examples
 
 ### **Basic Usage**
+
 ```python
 from media_player import MediaPlayer
 
@@ -119,6 +130,7 @@ player.next_track()
 ```
 
 ### **API Usage**
+
 ```bash
 # Search for albums
 curl "http://localhost:8000/spotify/search?query=Beatles&limit=5"
@@ -133,16 +145,19 @@ curl -X POST "http://localhost:8000/play/spotify_1W6k8nXvBDJUYmVbNz3qL6"
 ## Integration Points
 
 ### **1. TUI Interface**
+
 - Updated to display Spotify albums
 - Search and navigation support
 - Visual distinction between media types
 
 ### **2. StreamDeck Interface**
+
 - Spotify albums appear in media browsing
 - Play/pause/skip controls work uniformly
 - Album art support from Spotify URLs
 
 ### **3. Web Frontend**
+
 - All existing album functionality works with Spotify
 - New search functionality for adding albums
 - Unified media browsing experience
@@ -150,16 +165,19 @@ curl -X POST "http://localhost:8000/play/spotify_1W6k8nXvBDJUYmVbNz3qL6"
 ## Technical Implementation
 
 ### **Dependencies**
+
 - `spotipy>=2.22.1` for Spotify Web API
 - Optional dependency with graceful fallback
 - Added to both regular and optional dependencies
 
 ### **Error Handling**
+
 - Graceful degradation without Spotify credentials
 - API rate limiting awareness
 - Missing preview URL handling (auto-skip)
 
 ### **Threading Model**
+
 - Unified playback threading for all media types
 - Separate methods for local vs. Spotify playback
 - Consistent stop/pause/resume behavior
@@ -175,11 +193,13 @@ curl -X POST "http://localhost:8000/play/spotify_1W6k8nXvBDJUYmVbNz3qL6"
 ## Testing
 
 Run the test suite to verify integration:
+
 ```bash
 python test_spotify_integration.py
 ```
 
 Run the example with credentials:
+
 ```bash
 export SPOTIFY_CLIENT_ID="your_id"
 export SPOTIFY_CLIENT_SECRET="your_secret"

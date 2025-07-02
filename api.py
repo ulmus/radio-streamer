@@ -247,12 +247,14 @@ async def get_albums():
         if media_obj.media_type == MediaType.ALBUM and media_obj.album:
             albums[media_obj.album.folder_name] = {
                 "type": "local",
-                "data": media_obj.album.model_dump()
+                "data": media_obj.album.model_dump(),
             }
-        elif media_obj.media_type == MediaType.SPOTIFY_ALBUM and media_obj.spotify_album:
+        elif (
+            media_obj.media_type == MediaType.SPOTIFY_ALBUM and media_obj.spotify_album
+        ):
             albums[media_obj.spotify_album.spotify_id] = {
-                "type": "spotify", 
-                "data": media_obj.spotify_album.model_dump()
+                "type": "spotify",
+                "data": media_obj.spotify_album.model_dump(),
             }
     return albums
 
@@ -344,7 +346,9 @@ async def get_spotify_albums():
     spotify_albums = {}
     for media_id, media_obj in media_player.get_media_objects().items():
         if media_obj.media_type == MediaType.SPOTIFY_ALBUM and media_obj.spotify_album:
-            spotify_albums[media_obj.spotify_album.spotify_id] = media_obj.spotify_album.model_dump()
+            spotify_albums[media_obj.spotify_album.spotify_id] = (
+                media_obj.spotify_album.model_dump()
+            )
     return spotify_albums
 
 
@@ -353,7 +357,9 @@ async def play_spotify_album(album_id: str, track_number: int = 1):
     """Start playing a Spotify album from a specific track"""
     spotify_media_id = f"spotify_{album_id}"
     if media_player.play_media(spotify_media_id, track_number):
-        return {"message": f"Playing Spotify album '{album_id}' from track {track_number}"}
+        return {
+            "message": f"Playing Spotify album '{album_id}' from track {track_number}"
+        }
     raise HTTPException(status_code=400, detail=media_player.error_message)
 
 

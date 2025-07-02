@@ -16,6 +16,7 @@ dependencies = [
     "textual>=0.47.0",
     "rich>=13.0.0",
     "spotipy>=2.22.1",
+    "python-dotenv>=1.1.1",
 ]
 
 [project.optional-dependencies]

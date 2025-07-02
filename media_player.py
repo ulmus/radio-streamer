@@ -1,5 +1,6 @@
 import threading
 import time
+import os
 from typing import Dict, List, Optional
 from enum import Enum
 from pathlib import Path
@@ -8,8 +9,17 @@ import vlc
 from pydantic import BaseModel, HttpUrl
 
 try:
+    from dotenv import load_dotenv
+
+    DOTENV_AVAILABLE = True
+except ImportError:
+    DOTENV_AVAILABLE = False
+    load_dotenv = None
+
+try:
     import spotipy
     from spotipy.oauth2 import SpotifyClientCredentials
+
     SPOTIFY_AVAILABLE = True
 except ImportError:
     SPOTIFY_AVAILABLE = False
@@ -118,7 +128,17 @@ class PlayerStatus(BaseModel):
 
 
 class MediaPlayer:
-    def __init__(self, music_folder: str = "music", spotify_client_id: Optional[str] = None, spotify_client_secret: Optional[str] = None):
+    def __init__(
+        self,
+        music_folder: str = "music",
+        spotify_client_id: Optional[str] = None,
+        spotify_client_secret: Optional[str] = None,
+        load_env: bool = True,
+    ):
+        # Load environment variables from .env file if available
+        if load_env and DOTENV_AVAILABLE:
+            load_dotenv()  # type: ignore
+
         # Common player state
         self.state = PlayerState.STOPPED
         self.volume = 0.7
@@ -133,15 +153,22 @@ class MediaPlayer:
         self.music_folder = Path(music_folder)
         self.albums: Dict[str, Album] = {}
 
+        # Get Spotify credentials from parameters or environment variables
+        if not spotify_client_id:
+            spotify_client_id = os.getenv("SPOTIFY_CLIENT_ID")
+        if not spotify_client_secret:
+            spotify_client_secret = os.getenv("SPOTIFY_CLIENT_SECRET")
+
         # Spotify integration
         self.spotify_client = None
         if SPOTIFY_AVAILABLE and spotify_client_id and spotify_client_secret:
             try:
                 client_credentials_manager = SpotifyClientCredentials(  # type: ignore
-                    client_id=spotify_client_id,
-                    client_secret=spotify_client_secret
+                    client_id=spotify_client_id, client_secret=spotify_client_secret
                 )
-                self.spotify_client = spotipy.Spotify(client_credentials_manager=client_credentials_manager)  # type: ignore
+                self.spotify_client = spotipy.Spotify(
+                    client_credentials_manager=client_credentials_manager
+                )  # type: ignore
             except Exception as e:
                 print(f"Failed to initialize Spotify client: {e}")
 
@@ -348,7 +375,7 @@ class MediaPlayer:
                 self.error_message = "VLC instance is not initialized"
                 self.state = PlayerState.ERROR
                 return
-            
+
             media = self._vlc_instance.media_new(track.file_path)
             self._player.set_media(media)
             self._player.audio_set_volume(int(self.volume * 100))
@@ -392,13 +419,13 @@ class MediaPlayer:
             and not self._stop_flag.is_set()
         ):
             track = spotify_album.tracks[self.current_media.current_track_position]
-            
+
             # Create a Track object for compatibility with current_track
             self.current_track = Track(
                 track_number=track.track_number,
                 title=f"{track.title} - {track.artist}",
                 filename=f"{track.title}.mp3",
-                file_path=track.preview_url or ""
+                file_path=track.preview_url or "",
             )
 
             if not track.preview_url:
@@ -411,7 +438,7 @@ class MediaPlayer:
                 self.error_message = "VLC instance is not initialized"
                 self.state = PlayerState.ERROR
                 return
-            
+
             media = self._vlc_instance.media_new(track.preview_url)
             self._player.set_media(media)
             self._player.audio_set_volume(int(self.volume * 100))
@@ -500,34 +527,63 @@ class MediaPlayer:
         """Skip to next track in current album."""
         if not self.current_media:
             return False
-            
-        if self.current_media.media_type == MediaType.ALBUM and self.current_media.album:
-            if self.current_media.current_track_position < len(self.current_media.album.tracks) - 1:
-                return self._play_album(self.current_media, self.current_media.current_track_position + 2)
-        elif self.current_media.media_type == MediaType.SPOTIFY_ALBUM and self.current_media.spotify_album:
-            if self.current_media.current_track_position < len(self.current_media.spotify_album.tracks) - 1:
-                return self._play_album(self.current_media, self.current_media.current_track_position + 2)
-        
+
+        if (
+            self.current_media.media_type == MediaType.ALBUM
+            and self.current_media.album
+        ):
+            if (
+                self.current_media.current_track_position
+                < len(self.current_media.album.tracks) - 1
+            ):
+                return self._play_album(
+                    self.current_media, self.current_media.current_track_position + 2
+                )
+        elif (
+            self.current_media.media_type == MediaType.SPOTIFY_ALBUM
+            and self.current_media.spotify_album
+        ):
+            if (
+                self.current_media.current_track_position
+                < len(self.current_media.spotify_album.tracks) - 1
+            ):
+                return self._play_album(
+                    self.current_media, self.current_media.current_track_position + 2
+                )
+
         return False
 
     def previous_track(self) -> bool:
         """Go to previous track in current album."""
         if not self.current_media:
             return False
-            
-        if self.current_media.media_type == MediaType.ALBUM and self.current_media.album:
+
+        if (
+            self.current_media.media_type == MediaType.ALBUM
+            and self.current_media.album
+        ):
             if self.current_media.current_track_position > 0:
-                return self._play_album(self.current_media, self.current_media.current_track_position)
-        elif self.current_media.media_type == MediaType.SPOTIFY_ALBUM and self.current_media.spotify_album:
+                return self._play_album(
+                    self.current_media, self.current_media.current_track_position
+                )
+        elif (
+            self.current_media.media_type == MediaType.SPOTIFY_ALBUM
+            and self.current_media.spotify_album
+        ):
             if self.current_media.current_track_position > 0:
-                return self._play_album(self.current_media, self.current_media.current_track_position)
-        
+                return self._play_album(
+                    self.current_media, self.current_media.current_track_position
+                )
+
         return False
 
     def get_status(self) -> PlayerStatus:
         """Get current player status"""
         track_position = 0
-        if self.current_media and self.current_media.media_type in [MediaType.ALBUM, MediaType.SPOTIFY_ALBUM]:
+        if self.current_media and self.current_media.media_type in [
+            MediaType.ALBUM,
+            MediaType.SPOTIFY_ALBUM,
+        ]:
             track_position = (
                 self.current_media.current_track_position + 1
                 if self.current_track
@@ -599,19 +655,19 @@ class MediaPlayer:
                 self.error_message = "Local album data not found"
                 self.state = PlayerState.ERROR
                 return False
-            
+
             album = media_obj.album
             if track_number < 1 or track_number > len(album.tracks):
                 self.error_message = f"Track number {track_number} is out of range"
                 self.state = PlayerState.ERROR
                 return False
-                
+
         elif media_obj.media_type == MediaType.SPOTIFY_ALBUM:
             if not media_obj.spotify_album:
                 self.error_message = "Spotify album data not found"
                 self.state = PlayerState.ERROR
                 return False
-            
+
             spotify_album = media_obj.spotify_album
             if track_number < 1 or track_number > len(spotify_album.tracks):
                 self.error_message = f"Track number {track_number} is out of range"
@@ -623,17 +679,23 @@ class MediaPlayer:
             return False
 
         media_obj.current_track_position = track_number - 1
-        
+
         # Set current track based on album type
         if media_obj.media_type == MediaType.ALBUM and media_obj.album:
-            self.current_track = media_obj.album.tracks[media_obj.current_track_position]
-        elif media_obj.media_type == MediaType.SPOTIFY_ALBUM and media_obj.spotify_album:
-            spotify_track = media_obj.spotify_album.tracks[media_obj.current_track_position]
+            self.current_track = media_obj.album.tracks[
+                media_obj.current_track_position
+            ]
+        elif (
+            media_obj.media_type == MediaType.SPOTIFY_ALBUM and media_obj.spotify_album
+        ):
+            spotify_track = media_obj.spotify_album.tracks[
+                media_obj.current_track_position
+            ]
             self.current_track = Track(
                 track_number=spotify_track.track_number,
                 title=f"{spotify_track.title} - {spotify_track.artist}",
                 filename=f"{spotify_track.title}.mp3",
-                file_path=spotify_track.preview_url or ""
+                file_path=spotify_track.preview_url or "",
             )
 
         # Start playing in a separate thread
@@ -648,19 +710,25 @@ class MediaPlayer:
         """Search for Spotify albums"""
         if not self.spotify_client:
             return []
-        
+
         try:
-            results = self.spotify_client.search(q=query, type='album', limit=limit)  # type: ignore
+            results = self.spotify_client.search(q=query, type="album", limit=limit)  # type: ignore
             albums = []
-            for album in results['albums']['items']:
-                albums.append({
-                    'id': album['id'],
-                    'name': album['name'],
-                    'artist': album['artists'][0]['name'] if album['artists'] else 'Unknown',
-                    'image_url': album['images'][0]['url'] if album['images'] else None,
-                    'release_date': album['release_date'],
-                    'total_tracks': album['total_tracks']
-                })
+            for album in results["albums"]["items"]:
+                albums.append(
+                    {
+                        "id": album["id"],
+                        "name": album["name"],
+                        "artist": album["artists"][0]["name"]
+                        if album["artists"]
+                        else "Unknown",
+                        "image_url": album["images"][0]["url"]
+                        if album["images"]
+                        else None,
+                        "release_date": album["release_date"],
+                        "total_tracks": album["total_tracks"],
+                    }
+                )
             return albums
         except Exception as e:
             print(f"Error searching Spotify albums: {e}")
@@ -671,36 +739,42 @@ class MediaPlayer:
         if not self.spotify_client:
             self.error_message = "Spotify client not available"
             return False
-        
+
         try:
             # Get album details
             album_data = self.spotify_client.album(album_id)  # type: ignore
-            
+
             # Get album tracks
             tracks_data = self.spotify_client.album_tracks(album_id)  # type: ignore
-            
+
             spotify_tracks = []
-            for i, track in enumerate(tracks_data['items']):
+            for i, track in enumerate(tracks_data["items"]):
                 spotify_track = SpotifyTrack(
                     track_number=i + 1,
-                    title=track['name'],
-                    artist=track['artists'][0]['name'] if track['artists'] else 'Unknown',
-                    duration_ms=track['duration_ms'],
-                    spotify_id=track['id'],
-                    preview_url=track['preview_url']
+                    title=track["name"],
+                    artist=track["artists"][0]["name"]
+                    if track["artists"]
+                    else "Unknown",
+                    duration_ms=track["duration_ms"],
+                    spotify_id=track["id"],
+                    preview_url=track["preview_url"],
                 )
                 spotify_tracks.append(spotify_track)
-            
+
             spotify_album = SpotifyAlbum(
-                name=album_data['name'],
-                artist=album_data['artists'][0]['name'] if album_data['artists'] else 'Unknown',
+                name=album_data["name"],
+                artist=album_data["artists"][0]["name"]
+                if album_data["artists"]
+                else "Unknown",
                 spotify_id=album_id,
                 tracks=spotify_tracks,
-                album_art_url=album_data['images'][0]['url'] if album_data['images'] else None,
+                album_art_url=album_data["images"][0]["url"]
+                if album_data["images"]
+                else None,
                 track_count=len(spotify_tracks),
-                release_date=album_data.get('release_date')
+                release_date=album_data.get("release_date"),
             )
-            
+
             # Create MediaObject
             media_obj = MediaObject(
                 id=f"spotify_{album_id}",
@@ -709,12 +783,12 @@ class MediaPlayer:
                 path=f"spotify:album:{album_id}",
                 image_path=spotify_album.album_art_url or "",
                 description=f"Spotify album by {spotify_album.artist}",
-                spotify_album=spotify_album
+                spotify_album=spotify_album,
             )
-            
+
             self.media_objects[f"spotify_{album_id}"] = media_obj
             return True
-            
+
         except Exception as e:
             self.error_message = f"Failed to add Spotify album: {str(e)}"
             return False
@@ -724,10 +798,7 @@ class MediaPlayer:
         spotify_id = f"spotify_{album_id}"
         if spotify_id in self.media_objects:
             del self.media_objects[spotify_id]
-            if (
-                self.current_media and 
-                self.current_media.id == spotify_id
-            ):
+            if self.current_media and self.current_media.id == spotify_id:
                 self.stop()
             return True
         return False

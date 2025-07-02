@@ -44,7 +44,7 @@ class StreamDeckController:
 
         self.media_player = media_player
         self.deck = None
-        self.station_buttons = {}  # Maps button index to station_id
+        self.media_buttons = {}  # Maps button index to media_id (stations and albums)
         self.current_playing_button = None
         self.running = False
         self.update_thread = None
@@ -60,7 +60,7 @@ class StreamDeckController:
 
         self._initialize_device()
         if self.deck:
-            self._setup_station_buttons()
+            self._setup_media_buttons()
             self._start_update_thread()
 
     def _initialize_device(self):
@@ -91,8 +91,8 @@ class StreamDeckController:
             logger.error(f"Failed to initialize Stream Deck: {e}")
             self.deck = None
 
-    def _setup_station_buttons(self):
-        """Set up station buttons on the Stream Deck"""
+    def _setup_media_buttons(self):
+        """Set up media buttons (stations and albums) on the Stream Deck"""
         if not self.deck:
             return
 
@@ -100,33 +100,59 @@ class StreamDeckController:
         for i in range(self.deck.key_count()):
             self._clear_button(i)
 
-        # Set up station buttons
-        stations = {}
-        # Get radio stations from media objects
+        # Define predefined albums we want on the StreamDeck
+        predefined_albums = {
+            "abbey_road": {
+                "spotify_id": "0ETFjACtuP2ADo6LFhL6HN",
+                "name": "Abbey Road - The Beatles",
+                "search_query": "Abbey Road Beatles",
+            }
+        }
+
+        # Ensure predefined Spotify albums are available
+        for album_key, album_info in predefined_albums.items():
+            spotify_media_id = f"spotify_{album_info['spotify_id']}"
+            if spotify_media_id not in self.media_player.get_media_objects():
+                if self.media_player.spotify_client:
+                    logger.info(f"Adding predefined album: {album_info['name']}")
+                    self.media_player.add_spotify_album(album_info["spotify_id"])
+                else:
+                    logger.warning(
+                        f"Cannot add {album_info['name']} - Spotify client not available"
+                    )
+
+        # Get all media objects (radio stations and albums)
+        media_objects = {}
         for media_id, media_obj in self.media_player.get_media_objects().items():
             if media_obj.media_type == MediaType.RADIO:
-                stations[media_id] = {
+                media_objects[media_id] = {
                     "name": media_obj.name,
-                    "url": media_obj.url,
+                    "type": "radio",
                     "description": media_obj.description,
                 }
+            elif media_obj.media_type in [MediaType.ALBUM, MediaType.SPOTIFY_ALBUM]:
+                media_objects[media_id] = {
+                    "name": media_obj.name,
+                    "type": "album",
+                    "description": media_obj.description or f"Album: {media_obj.name}",
+                }
 
-        button_index = 0  # Start from first button (no control buttons anymore)
+        button_index = 0  # Start from first button
 
-        self.station_buttons.clear()
+        self.media_buttons.clear()
 
-        for station_id, station_info in stations.items():
+        for media_id, media_info in media_objects.items():
             if button_index >= self.deck.key_count():
                 logger.warning(
-                    f"Too many stations for Stream Deck buttons. Skipping {station_id}"
+                    f"Too many media objects for Stream Deck buttons. Skipping {media_id}"
                 )
                 break
 
-            self.station_buttons[button_index] = station_id
-            self._update_button_image(button_index, station_id, "available")
+            self.media_buttons[button_index] = media_id
+            self._update_button_image(button_index, media_id, "available")
             button_index += 1
 
-        logger.info(f"Set up {len(self.station_buttons)} station buttons")
+        logger.info(f"Set up {len(self.media_buttons)} media buttons")
 
     def _button_callback(self, deck, key, state):
         """Handle button press events"""
@@ -135,26 +161,26 @@ class StreamDeckController:
 
         logger.info(f"Button {key} pressed")
 
-        # Handle station buttons
-        if key in self.station_buttons:
-            station_id = self.station_buttons[key]
+        # Handle media buttons (stations and albums)
+        if key in self.media_buttons:
+            media_id = self.media_buttons[key]
             try:
-                # Check if this is the currently playing station
+                # Check if this is the currently playing media
                 status = self.media_player.get_status()
                 if (
                     status.current_media
-                    and status.current_media.id == station_id
+                    and status.current_media.id == media_id
                     and status.state in [PlayerState.PLAYING, PlayerState.LOADING]
                 ):
-                    # If pressing the currently playing/loading station, stop it
+                    # If pressing the currently playing/loading media, stop it
                     self.media_player.stop()
-                    logger.info(f"Stopped currently playing station: {station_id}")
+                    logger.info(f"Stopped currently playing media: {media_id}")
                 else:
-                    # Otherwise, start playing the selected station
-                    self.media_player.play_media(station_id)
-                    logger.info(f"Playing station: {station_id}")
+                    # Otherwise, start playing the selected media
+                    self.media_player.play_media(media_id)
+                    logger.info(f"Playing media: {media_id}")
             except Exception as e:
-                logger.error(f"Failed to handle station button {station_id}: {e}")
+                logger.error(f"Failed to handle media button {media_id}: {e}")
 
     def _start_update_thread(self):
         """Start the background thread for updating button states"""
@@ -174,37 +200,28 @@ class StreamDeckController:
                 time.sleep(1)
 
     def _update_button_states(self, status):
-        """Update all button states based on radio status"""
-        for button_index, station_id in self.station_buttons.items():
-            self._update_button_image(button_index, station_id)
+        """Update all button states based on media status"""
+        for button_index, media_id in self.media_buttons.items():
+            self._update_button_image(button_index, media_id)
 
     def _update_button_image(
-        self, button_index: int, station_id: str, force_state: Optional[str] = None
+        self, button_index: int, media_id: str, force_state: Optional[str] = None
     ):
         """Update the image for a specific button"""
         try:
-            # Get stations from media objects
-            stations = {}
-            for media_id, media_obj in self.media_player.get_media_objects().items():
-                if media_obj.media_type == MediaType.RADIO:
-                    stations[media_id] = {
-                        "name": media_obj.name,
-                        "url": media_obj.url,
-                        "description": media_obj.description,
-                    }
-
-            if station_id not in stations:
+            # Get media object
+            media_obj = self.media_player.get_media_object(media_id)
+            if not media_obj:
                 return
 
-            station_info = stations[station_id]
-            station_name = station_info["name"]
+            media_name = media_obj.name
 
             # Determine button state
             if force_state:
                 state = force_state
             else:
                 status = self.media_player.get_status()
-                if status.current_media and status.current_media.id == station_id:
+                if status.current_media and status.current_media.id == media_id:
                     if status.state == PlayerState.PLAYING:
                         state = "playing"
                     elif status.state == PlayerState.LOADING:
@@ -216,22 +233,22 @@ class StreamDeckController:
                 else:
                     state = "available"
 
-            # Create and set button image with station_id for thumbnail support
-            image = self._create_button_image(
-                station_name, self.colors[state], station_id=station_id
-            )
-            if self.deck:
-                self.deck.set_key_image(button_index, image)
+            # Create and set button image with media_id for thumbnail support
+            color = self.colors.get(
+                state, (100, 100, 100)
+            )  # Default to gray if state not found
+            image = self._create_button_image(media_name, color, False, media_id)
+            self.deck.set_key_image(button_index, image)
 
         except Exception as e:
-            logger.error(f"Error updating button {button_index}: {e}")
+            logger.error(f"Failed to update button image for {media_id}: {e}")
 
     def _create_button_image(
         self,
         text: str,
         color: tuple,
         is_control: bool = False,
-        station_id: str | None = None,
+        media_id: str | None = None,
     ) -> bytes:
         """Create a button image with thumbnail or text and background color"""
         if not self.deck:
@@ -241,9 +258,9 @@ class StreamDeckController:
         image_format = self.deck.key_image_format()
         image_size = image_format["size"]
 
-        # Try to load station thumbnail if station_id is provided and not a control button
-        if station_id and not is_control:
-            image_path = self._get_station_image_path(station_id)
+        # Try to load media thumbnail if media_id is provided and not a control button
+        if media_id and not is_control:
+            image_path = self._get_media_image_path(media_id)
             if image_path and os.path.exists(image_path):
                 try:
                     # Load and resize the thumbnail image
@@ -281,7 +298,7 @@ class StreamDeckController:
                     return PILHelper.to_native_format(self.deck, image)
 
                 except Exception as e:
-                    logger.warning(f"Failed to load thumbnail for {station_id}: {e}")
+                    logger.warning(f"Failed to load thumbnail for {media_id}: {e}")
                     # Fall back to text-based button
 
         # Create text-based button (fallback or for control buttons)
@@ -323,34 +340,45 @@ class StreamDeckController:
             return b""
         return PILHelper.to_native_format(self.deck, image)
 
-    def _get_station_image_path(self, station_id: str) -> Optional[str]:
-        """Get the file path for a station's thumbnail image"""
-        images_dir = os.path.join(os.path.dirname(__file__), "images", "stations")
+    def _get_media_image_path(self, media_id: str) -> Optional[str]:
+        """Get the file path for a media object's thumbnail image"""
+        # Get the media object to determine its type
+        media_obj = self.media_player.get_media_object(media_id)
+        if not media_obj:
+            return None
 
-        # Try different common image formats
-        for ext in [".png", ".jpg", ".jpeg", ".gif", ".webp"]:
-            image_path = os.path.join(images_dir, f"{station_id}{ext}")
-            if os.path.exists(image_path):
-                return image_path
+        # Check if the media object already has an image path
+        if media_obj.image_path and os.path.exists(media_obj.image_path):
+            return media_obj.image_path
 
-        # Try with category prefix (e.g., swedish_radio_p1.png)
-        # Get stations from media objects
-        stations = {}
-        for media_id, media_obj in self.media_player.get_media_objects().items():
-            if media_obj.media_type == MediaType.RADIO:
-                stations[media_id] = {
-                    "name": media_obj.name,
-                    "url": media_obj.url,
-                    "description": media_obj.description,
-                }
+        # For Spotify albums, try to use the album art URL (could be cached)
+        if (
+            media_obj.media_type == MediaType.SPOTIFY_ALBUM
+            and media_obj.spotify_album
+            and media_obj.spotify_album.album_art_url
+        ):
+            # For now, return None - in a full implementation, you'd cache the URL image
+            # TODO: Implement album art caching from Spotify URLs
+            return None
 
-        if station_id in stations:
+        # For radio stations, check the images/stations directory
+        if media_obj.media_type == MediaType.RADIO:
+            images_dir = os.path.join(os.path.dirname(__file__), "images", "stations")
+            # Extract station ID from media_id (e.g., "p1" from station path)
+            station_id = media_id
+
+            # Try different common image formats
             for ext in [".png", ".jpg", ".jpeg", ".gif", ".webp"]:
-                image_path = os.path.join(
-                    images_dir, f"swedish_radio_{station_id}{ext}"
-                )
+                image_path = os.path.join(images_dir, f"{station_id}{ext}")
                 if os.path.exists(image_path):
                     return image_path
+
+        # For local albums, check the album directory for album_art
+        elif media_obj.media_type == MediaType.ALBUM and media_obj.album:
+            if media_obj.album.album_art_path and os.path.exists(
+                media_obj.album.album_art_path
+            ):
+                return media_obj.album.album_art_path
 
         return None
 
@@ -372,9 +400,9 @@ class StreamDeckController:
             logger.error(f"Error clearing button {button_index}: {e}")
 
     def refresh_stations(self):
-        """Refresh station button mapping (call when stations are added/removed)"""
+        """Refresh media button mapping (call when media objects are added/removed)"""
         if self.deck:
-            self._setup_station_buttons()
+            self._setup_media_buttons()
 
     def close(self):
         """Clean up Stream Deck connection"""
