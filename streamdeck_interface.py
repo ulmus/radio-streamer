@@ -46,8 +46,18 @@ class StreamDeckController:
         self.media_player = media_player
         self.config_manager = MediaConfigManager(config_file)
         self.deck = None
-        self.media_buttons = {}  # Maps button index to media_id (stations and albums)
-        self.current_playing_button = None
+
+        # Carousel system
+        self.all_media_objects = []  # All available media objects in order
+        self.carousel_offset = 0  # Current position in carousel
+        self.carousel_size = 3  # Number of carousel buttons (0, 1, 2)
+
+        # Button layout: 0,1,2 = carousel, 3 = now playing, 4,5 = navigation
+        self.CAROUSEL_BUTTONS = [0, 1, 2]
+        self.NOW_PLAYING_BUTTON = 3
+        self.PREV_BUTTON = 4
+        self.NEXT_BUTTON = 5
+
         self.running = False
         self.update_thread = None
 
@@ -56,7 +66,7 @@ class StreamDeckController:
 
         self._initialize_device()
         if self.deck:
-            self._setup_media_buttons()
+            self._setup_carousel_interface()
             self._start_update_thread()
 
     def _initialize_device(self):
@@ -87,8 +97,8 @@ class StreamDeckController:
             logger.error(f"Failed to initialize Stream Deck: {e}")
             self.deck = None
 
-    def _setup_media_buttons(self):
-        """Set up media buttons (stations and albums) on the Stream Deck"""
+    def _setup_carousel_interface(self):
+        """Set up the carousel interface on the Stream Deck"""
         if not self.deck:
             return
 
@@ -103,11 +113,31 @@ class StreamDeckController:
         for i in range(self.deck.key_count()):
             self._clear_button(i)
 
-        # Get media objects in order
-        media_objects = self.config_manager.get_media_objects()
+        # Get all available media objects
+        self._refresh_media_objects()
 
-        # Ensure Spotify albums are added to the media player
-        for media_obj in media_objects:
+        # Set up navigation buttons
+        self._update_navigation_buttons()
+
+        # Set up now playing button
+        self._update_now_playing_button()
+
+        # Set up carousel buttons
+        self._update_carousel_buttons()
+
+        logger.info(
+            f"Set up carousel interface with {len(self.all_media_objects)} media objects"
+        )
+
+    def _refresh_media_objects(self):
+        """Refresh the list of all media objects"""
+        self.all_media_objects = []
+
+        # Get media objects from configuration
+        config_media_objects = self.config_manager.get_media_objects()
+
+        # Ensure Spotify albums are available in media player
+        for media_obj in config_media_objects:
             if media_obj.get("type") == "spotify_album":
                 spotify_id = media_obj["spotify_id"]
                 spotify_media_id = f"spotify_{spotify_id}"
@@ -120,32 +150,26 @@ class StreamDeckController:
                             f"Cannot add {media_obj['name']} - Spotify client not available"
                         )
 
-        button_index = 0
-        self.media_buttons.clear()
-
-        # Add buttons in the order specified in media_objects.json
-        for media_obj in media_objects:
-            if button_index >= self.deck.key_count():
-                logger.warning(
-                    f"Too many media objects for Stream Deck buttons. Skipping {media_obj['id']}"
-                )
-                break
-
-            # Determine the media ID used by the media player
+        # Build list of available media objects in configured order
+        for media_obj in config_media_objects:
             if media_obj.get("type") == "radio":
                 media_id = media_obj["id"]
             elif media_obj.get("type") == "spotify_album":
                 media_id = f"spotify_{media_obj['spotify_id']}"
             else:
-                continue  # Skip unknown types
+                continue
 
             # Only add if the media player has this object
             if media_id in self.media_player.get_media_objects():
-                self.media_buttons[button_index] = media_id
-                self._update_button_image(button_index, media_id, "available")
-                button_index += 1
+                self.all_media_objects.append(media_id)
 
-        logger.info(f"Set up {len(self.media_buttons)} media buttons")
+        # Add local albums
+        for media_id, media_obj in self.media_player.get_media_objects().items():
+            if (
+                media_obj.media_type == MediaType.ALBUM
+                and media_id not in self.all_media_objects
+            ):
+                self.all_media_objects.append(media_id)
 
     def _button_callback(self, deck, key, state):
         """Handle button press events"""
@@ -154,26 +178,58 @@ class StreamDeckController:
 
         logger.info(f"Button {key} pressed")
 
-        # Handle media buttons (stations and albums)
-        if key in self.media_buttons:
-            media_id = self.media_buttons[key]
-            try:
-                # Check if this is the currently playing media
-                status = self.media_player.get_status()
-                if (
-                    status.current_media
-                    and status.current_media.id == media_id
-                    and status.state in [PlayerState.PLAYING, PlayerState.LOADING]
-                ):
-                    # If pressing the currently playing/loading media, stop it
-                    self.media_player.stop()
-                    logger.info(f"Stopped currently playing media: {media_id}")
+        # Handle carousel buttons (0, 1, 2)
+        if key in self.CAROUSEL_BUTTONS:
+            carousel_index = key  # Button 0 = index 0, Button 1 = index 1, etc.
+            media_index = self.carousel_offset + carousel_index
+
+            if media_index < len(self.all_media_objects):
+                media_id = self.all_media_objects[media_index]
+                try:
+                    # Check if this is the currently playing media
+                    status = self.media_player.get_status()
+                    if (
+                        status.current_media
+                        and status.current_media.id == media_id
+                        and status.state in [PlayerState.PLAYING, PlayerState.LOADING]
+                    ):
+                        # If pressing the currently playing/loading media, stop it
+                        self.media_player.stop()
+                        logger.info(f"Stopped currently playing media: {media_id}")
+                    else:
+                        # Otherwise, start playing the selected media
+                        self.media_player.play_media(media_id)
+                        logger.info(f"Playing media: {media_id}")
+                except Exception as e:
+                    logger.error(f"Failed to handle carousel button {media_id}: {e}")
+
+        # Handle now playing button (3)
+        elif key == self.NOW_PLAYING_BUTTON:
+            status = self.media_player.get_status()
+            if status.current_media:
+                if status.state == PlayerState.PLAYING:
+                    # Pause if playing
+                    self.media_player.pause()
+                    logger.info("Paused playback via now playing button")
+                elif status.state == PlayerState.PAUSED:
+                    # Resume if paused
+                    self.media_player.resume()
+                    logger.info("Resumed playback via now playing button")
                 else:
-                    # Otherwise, start playing the selected media
-                    self.media_player.play_media(media_id)
-                    logger.info(f"Playing media: {media_id}")
-            except Exception as e:
-                logger.error(f"Failed to handle media button {media_id}: {e}")
+                    # Restart if stopped/error/loading
+                    self.media_player.play_media(status.current_media.id)
+                    logger.info("Restarted current media")
+            else:
+                logger.info("No media to control via now playing button")
+
+        # Handle navigation buttons
+        elif key == self.PREV_BUTTON:
+            self._navigate_carousel(-1)
+            logger.info(f"Navigated to carousel offset: {self.carousel_offset}")
+
+        elif key == self.NEXT_BUTTON:
+            self._navigate_carousel(1)
+            logger.info(f"Navigated to carousel offset: {self.carousel_offset}")
 
     def _start_update_thread(self):
         """Start the background thread for updating button states"""
@@ -197,8 +253,14 @@ class StreamDeckController:
 
     def _update_button_states(self, status):
         """Update all button states based on media status"""
-        for button_index, media_id in self.media_buttons.items():
-            self._update_button_image(button_index, media_id)
+        # Update carousel buttons
+        self._update_carousel_buttons()
+
+        # Update now playing button
+        self._update_now_playing_button()
+
+        # Update navigation buttons
+        self._update_navigation_buttons()
 
     def _update_button_image(
         self, button_index: int, media_id: str, force_state: Optional[str] = None
@@ -407,9 +469,11 @@ class StreamDeckController:
             logger.error(f"Error clearing button {button_index}: {e}")
 
     def refresh_stations(self):
-        """Refresh media button mapping (call when media objects are added/removed)"""
+        """Refresh media objects (call when media objects are added/removed)"""
         if self.deck:
-            self._setup_media_buttons()
+            self._refresh_media_objects()
+            self._update_carousel_buttons()
+            self._update_navigation_buttons()
 
     def close(self):
         """Clean up Stream Deck connection"""
@@ -428,3 +492,333 @@ class StreamDeckController:
                 logger.error(f"Error closing Stream Deck: {e}")
 
         logger.info("Stream Deck interface closed")
+
+    def _update_carousel_buttons(self):
+        """Update the carousel buttons (0, 1, 2) with current media objects"""
+        for i, button_idx in enumerate(self.CAROUSEL_BUTTONS):
+            media_index = self.carousel_offset + i
+            if media_index < len(self.all_media_objects):
+                media_id = self.all_media_objects[media_index]
+                self._update_button_image(button_idx, media_id)
+            else:
+                # Empty slot
+                self._create_empty_button(button_idx)
+
+    def _update_now_playing_button(self):
+        """Update the now playing button (3) with album art and play/pause overlay"""
+        status = self.media_player.get_status()
+        if status.current_media:
+            # Show currently playing media with album art and overlay
+            self._update_now_playing_with_overlay(status.current_media.id, status.state)
+        else:
+            # Show "Now Playing" text
+            image = self._create_text_button(
+                "NOW\nPLAYING", self.colors.get("inactive", (50, 50, 50))
+            )
+            if self.deck:
+                self.deck.set_key_image(self.NOW_PLAYING_BUTTON, image)
+
+    def _update_navigation_buttons(self):
+        """Update the navigation buttons (4, 5)"""
+        # Previous button (4)
+        prev_color = (
+            self.colors.get("available", (0, 100, 200))
+            if self.carousel_offset > 0
+            else self.colors.get("inactive", (50, 50, 50))
+        )
+        prev_image = self._create_arrow_button("◄", prev_color)
+        if self.deck:
+            self.deck.set_key_image(self.PREV_BUTTON, prev_image)
+
+        # Next button (5)
+        max_offset = max(0, len(self.all_media_objects) - self.carousel_size)
+        next_color = (
+            self.colors.get("available", (0, 100, 200))
+            if self.carousel_offset < max_offset
+            else self.colors.get("inactive", (50, 50, 50))
+        )
+        next_image = self._create_arrow_button("►", next_color)
+        if self.deck:
+            self.deck.set_key_image(self.NEXT_BUTTON, next_image)
+
+    def _create_empty_button(self, button_index: int):
+        """Create an empty button"""
+        image = self._create_text_button("", self.colors.get("inactive", (50, 50, 50)))
+        if self.deck:
+            self.deck.set_key_image(button_index, image)
+
+    def _create_text_button(self, text: str, color: tuple) -> bytes:
+        """Create a button with text and background color"""
+        if not self.deck:
+            return b""
+
+        image_format = self.deck.key_image_format()
+        image_size = image_format["size"]
+
+        image = Image.new("RGB", image_size, color)
+        draw = ImageDraw.Draw(image)
+
+        # Get font settings from config
+        ui_config = self.config_manager.get_ui_config()
+        font_settings = ui_config.get("font_settings", {})
+
+        try:
+            font_size_range = font_settings.get("font_size_range", [12, 24])
+            font_size = max(
+                font_size_range[0], min(font_size_range[1], image_size[0] // 8)
+            )
+            font = ImageFont.truetype("/System/Library/Fonts/Arial.ttf", font_size)
+        except (OSError, IOError):
+            font = ImageFont.load_default()
+
+        # Calculate text position (centered)
+        bbox = draw.textbbox((0, 0), text, font=font)
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
+
+        x = (image_size[0] - text_width) // 2
+        y = (image_size[1] - text_height) // 2
+
+        # Draw text
+        draw.text((x, y), text, font=font, fill="white")
+
+        if PILHelper is None:
+            return b""
+        return PILHelper.to_native_format(self.deck, image)
+
+    def _create_arrow_button(self, arrow_text: str, color: tuple) -> bytes:
+        """Create a button with arrow symbol"""
+        if not self.deck:
+            return b""
+
+        image_format = self.deck.key_image_format()
+        image_size = image_format["size"]
+
+        image = Image.new("RGB", image_size, color)
+        draw = ImageDraw.Draw(image)
+
+        try:
+            # Use larger font for arrows
+            font_size = min(32, image_size[0] // 3)
+            font = ImageFont.truetype("/System/Library/Fonts/Arial.ttf", font_size)
+        except (OSError, IOError):
+            font = ImageFont.load_default()
+
+        # Calculate text position (centered)
+        bbox = draw.textbbox((0, 0), arrow_text, font=font)
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
+
+        x = (image_size[0] - text_width) // 2
+        y = (image_size[1] - text_height) // 2
+
+        # Draw arrow
+        draw.text((x, y), arrow_text, font=font, fill="white")
+
+        if PILHelper is None:
+            return b""
+        return PILHelper.to_native_format(self.deck, image)
+
+    def _navigate_carousel(self, direction: int):
+        """Navigate the carousel in the given direction (-1 for prev, 1 for next)"""
+        if direction < 0:  # Previous
+            self.carousel_offset = max(0, self.carousel_offset - 1)
+        else:  # Next
+            max_offset = max(0, len(self.all_media_objects) - self.carousel_size)
+            self.carousel_offset = min(max_offset, self.carousel_offset + 1)
+
+        # Update carousel and navigation buttons
+        self._update_carousel_buttons()
+        self._update_navigation_buttons()
+
+    def _update_now_playing_with_overlay(self, media_id: str, player_state):
+        """Update now playing button with album art and play/pause overlay"""
+        try:
+            # Get media object
+            media_obj = self.media_player.get_media_object(media_id)
+            if not media_obj:
+                return
+
+            # Get button image dimensions
+            image_format = self.deck.key_image_format()
+            image_size = image_format["size"]
+
+            # Try to load media thumbnail/album art
+            image_path = self._get_media_image_path(media_id)
+            background_image = None
+
+            if image_path and os.path.exists(image_path):
+                try:
+                    # Load and resize the thumbnail image
+                    thumbnail = Image.open(image_path)
+                    thumbnail.thumbnail(image_size, Image.Resampling.LANCZOS)
+
+                    # Create background image
+                    background_image = Image.new("RGB", image_size, (0, 0, 0))
+
+                    # Calculate position to center the thumbnail
+                    thumb_x = (image_size[0] - thumbnail.size[0]) // 2
+                    thumb_y = (image_size[1] - thumbnail.size[1]) // 2
+
+                    # Paste thumbnail onto background
+                    if thumbnail.mode == "RGBA":
+                        background_image.paste(thumbnail, (thumb_x, thumb_y), thumbnail)
+                    else:
+                        background_image.paste(thumbnail, (thumb_x, thumb_y))
+
+                except Exception as e:
+                    logger.warning(f"Failed to load album art for {media_id}: {e}")
+                    background_image = None
+
+            # Fallback to colored background if no image
+            if background_image is None:
+                state_color = self._get_state_color(player_state)
+                background_image = Image.new("RGB", image_size, state_color)
+
+                # Add media name text if no image
+                draw = ImageDraw.Draw(background_image)
+                try:
+                    font_size = max(10, image_size[0] // 8)
+                    font = ImageFont.truetype(
+                        "/System/Library/Fonts/Arial.ttf", font_size
+                    )
+                except (OSError, IOError):
+                    font = ImageFont.load_default()
+
+                # Truncate name for display
+                display_name = media_obj.name
+                if len(display_name) > 10:
+                    display_name = display_name[:7] + "..."
+
+                bbox = draw.textbbox((0, 0), display_name, font=font)
+                text_width = bbox[2] - bbox[0]
+                text_height = bbox[3] - bbox[1]
+
+                x = (image_size[0] - text_width) // 2
+                y = (image_size[1] - text_height) // 2 - 10  # Offset up for icon space
+
+                draw.text((x, y), display_name, font=font, fill="white")
+
+            # Add play/pause overlay icon
+            self._add_playback_overlay(background_image, player_state)
+
+            # Convert to Stream Deck format
+            if PILHelper is None:
+                logger.error("PILHelper is not available.")
+                return
+
+            native_format = PILHelper.to_native_format(self.deck, background_image)
+            self.deck.set_key_image(self.NOW_PLAYING_BUTTON, native_format)
+
+        except Exception as e:
+            logger.error(f"Failed to update now playing button: {e}")
+
+    def _get_state_color(self, player_state):
+        """Get color based on player state"""
+        if player_state == PlayerState.PLAYING:
+            return self.colors.get("playing", (0, 150, 0))
+        elif player_state == PlayerState.PAUSED:
+            return self.colors.get("loading", (255, 165, 0))  # Orange for paused
+        elif player_state == PlayerState.LOADING:
+            return self.colors.get("loading", (255, 165, 0))
+        elif player_state == PlayerState.ERROR:
+            return self.colors.get("error", (150, 0, 0))
+        else:
+            return self.colors.get("available", (0, 100, 200))
+
+    def _add_playback_overlay(self, image: Image.Image, player_state):
+        """Add play/pause/loading overlay icon to the image"""
+        draw = ImageDraw.Draw(image)
+
+        # Calculate icon position (bottom-right corner)
+        icon_size = min(image.size) // 4  # Icon is 1/4 of button size
+        margin = 5
+        icon_x = image.size[0] - icon_size - margin
+        icon_y = image.size[1] - icon_size - margin
+
+        # Draw icon background circle
+        circle_color = (0, 0, 0, 180)  # Semi-transparent black
+        icon_bg = Image.new("RGBA", (icon_size, icon_size), (0, 0, 0, 0))
+        icon_draw = ImageDraw.Draw(icon_bg)
+        icon_draw.ellipse([2, 2, icon_size - 2, icon_size - 2], fill=circle_color)
+
+        # Draw the appropriate icon
+        icon_color = "white"
+        center_x = icon_size // 2
+        center_y = icon_size // 2
+
+        if player_state == PlayerState.PLAYING:
+            # Draw pause icon (two vertical bars)
+            bar_width = icon_size // 6
+            bar_height = icon_size // 2
+            bar_spacing = icon_size // 8
+
+            # Left bar
+            left_x = center_x - bar_spacing - bar_width
+            icon_draw.rectangle(
+                [
+                    left_x,
+                    center_y - bar_height // 2,
+                    left_x + bar_width,
+                    center_y + bar_height // 2,
+                ],
+                fill=icon_color,
+            )
+
+            # Right bar
+            right_x = center_x + bar_spacing
+            icon_draw.rectangle(
+                [
+                    right_x,
+                    center_y - bar_height // 2,
+                    right_x + bar_width,
+                    center_y + bar_height // 2,
+                ],
+                fill=icon_color,
+            )
+
+        elif player_state == PlayerState.PAUSED:
+            # Draw play icon (triangle)
+            triangle_size = icon_size // 3
+            points = [
+                (center_x - triangle_size // 2, center_y - triangle_size // 2),
+                (center_x - triangle_size // 2, center_y + triangle_size // 2),
+                (center_x + triangle_size // 2, center_y),
+            ]
+            icon_draw.polygon(points, fill=icon_color)
+
+        elif player_state == PlayerState.LOADING:
+            # Draw loading icon (3 dots in a circle pattern)
+            dot_radius = icon_size // 12
+            for i in range(3):
+                # Position dots in a triangular pattern
+                dot_x = center_x + int(
+                    (icon_size // 4) * 0.7 * (1 if i == 0 else 0.5 if i == 1 else -0.5)
+                )
+                dot_y = center_y + int(
+                    (icon_size // 4)
+                    * 0.7
+                    * (0 if i == 0 else 0.866 if i == 1 else -0.866)
+                )
+                icon_draw.ellipse(
+                    [
+                        dot_x - dot_radius,
+                        dot_y - dot_radius,
+                        dot_x + dot_radius,
+                        dot_y + dot_radius,
+                    ],
+                    fill=icon_color,
+                )
+
+        # Paste the icon onto the main image
+        if image.mode != "RGBA":
+            image = image.convert("RGBA")
+        image.paste(icon_bg, (icon_x, icon_y), icon_bg)
+
+        # Convert back to RGB if needed
+        if image.mode == "RGBA":
+            rgb_image = Image.new("RGB", image.size, (0, 0, 0))
+            rgb_image.paste(
+                image, mask=image.split()[-1] if len(image.split()) == 4 else None
+            )
+            image.paste(rgb_image)
