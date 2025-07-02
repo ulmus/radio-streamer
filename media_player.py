@@ -170,44 +170,51 @@ class MediaPlayer:
         self._stop_flag = threading.Event()
 
         # Load media from configuration
-        self._load_configured_media()
+        self._load_media()
 
-    def _load_configured_media(self):
-        """Load radio stations and predefined Spotify albums from configuration."""
-        # Get media objects in order
+    def _load_media(self):
+        """Load all media from configuration and music folder."""
+        # Get media objects from configuration
         media_objects = self.config_manager.get_media_objects()
 
         for media_obj in media_objects:
-            if media_obj.get("type") == "radio":
-                # Load radio station
-                station_id = media_obj["id"]
-                image_path = media_obj.get(
-                    "image_path", f"images/stations/{station_id}.png"
-                )
-                media_object = MediaObject(
-                    id=station_id,
-                    name=media_obj["name"],
-                    media_type=MediaType.RADIO,
-                    url=media_obj["url"],
-                    description=media_obj.get("description", ""),
-                    image_path=image_path,
-                )
-                self.media_objects[station_id] = media_object
+            media_type = media_obj.get("type")
+            if media_type == "radio":
+                self._load_radio_station(media_obj)
+            elif media_type == "spotify_album":
+                self._load_spotify_album_from_config(media_obj)
 
-            elif media_obj.get("type") == "spotify_album" and self.spotify_client:
-                # Load Spotify album
-                spotify_id = media_obj["spotify_id"]
-                media_id = f"spotify_{spotify_id}"
-
-                # Only add if not already present
-                if media_id not in self.media_objects:
-                    try:
-                        self.add_spotify_album(spotify_id)
-                    except Exception as e:
-                        print(f"Failed to load Spotify album {media_obj['name']}: {e}")
-
-        # Load local albums
+        # Load local albums from the music folder
         self.load_albums()
+
+    def _load_radio_station(self, media_obj: dict):
+        """Load a radio station from a configuration object."""
+        station_id = media_obj["id"]
+        image_path = media_obj.get("image_path", f"images/stations/{station_id}.png")
+        media_object = MediaObject(
+            id=station_id,
+            name=media_obj["name"],
+            media_type=MediaType.RADIO,
+            url=media_obj["url"],
+            description=media_obj.get("description", ""),
+            image_path=image_path,
+        )
+        self.media_objects[station_id] = media_object
+
+    def _load_spotify_album_from_config(self, media_obj: dict):
+        """Load a Spotify album from a configuration object."""
+        if not self.spotify_client:
+            return
+
+        spotify_id = media_obj["spotify_id"]
+        media_id = f"spotify_{spotify_id}"
+
+        # Only add if not already present
+        if media_id not in self.media_objects:
+            try:
+                self.add_spotify_album(spotify_id)
+            except Exception as e:
+                print(f"Failed to load Spotify album {media_obj['name']}: {e}")
 
     def _stream_radio(self, url: str):
         """Stream radio from URL (runs in separate thread)"""
