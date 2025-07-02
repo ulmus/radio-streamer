@@ -2,7 +2,7 @@
 Media Player Module
 
 This package provides a modular media player implementation for handling
-radio stations, local albums, and Spotify integration.
+radio stations and local albums.
 """
 
 from .types import (

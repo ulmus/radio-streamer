@@ -65,11 +65,11 @@ class Album(BaseModel):
 
 
 class MediaObject(BaseModel):
-    """Unified media object that can represent radio stations, local albums, or Spotify albums"""
+    """Unified media object that can represent radio stations or local albums"""
     id: str
     name: str
     media_type: MediaType
-    path: str = ""  # URL for radio, folder path for albums, Spotify URI for Spotify
+    path: str = ""  # URL for radio, folder path for albums
     image_path: str = ""
     description: Optional[str] = None
     # For radio stations

@@ -1,7 +1,7 @@
 """
 Media Player
 
-This module provides a unified media player for handling radio stations, local albums, and Spotify albums.
+This module provides a unified media player for handling radio stations and local albums.
 This is a compatibility wrapper around the new modular media player implementation.
 """
 

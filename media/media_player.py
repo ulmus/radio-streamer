@@ -2,7 +2,7 @@
 Media Player
 
 Main media player class that orchestrates all the different media managers
-and provides a unified interface for playing radio stations, local albums, and Spotify albums.
+and provides a unified interface for playing radio stations and local albums.
 """
 
 import logging
