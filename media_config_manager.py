@@ -120,20 +120,6 @@ class MediaConfigManager:
                 }
         return stations
 
-    def get_spotify_albums(self) -> Dict[str, Dict[str, Any]]:
-        """Get Spotify album definitions (backward compatibility)"""
-        albums = {}
-        for obj in self.media_objects:
-            if obj.get("type") == "spotify_album":
-                albums[obj["id"]] = {
-                    "name": obj["name"],
-                    "spotify_id": obj["spotify_id"],
-                    "search_query": obj.get("search_query", obj["name"]),
-                    "description": obj.get("description", ""),
-                    "priority": obj.get("priority", 999),
-                }
-        return albums
-
     def get_streamdeck_config(self) -> Dict[str, Any]:
         """Get StreamDeck configuration"""
         return self.config.get(
@@ -188,28 +174,6 @@ class MediaConfigManager:
             "image_path": image_path,
         }
         self.media_objects.append(station_obj)
-        return self.save_media_objects()
-
-    def add_spotify_album(
-        self,
-        album_key: str,
-        name: str,
-        spotify_id: str,
-        search_query: str = "",
-        description: str = "",
-        priority: int = 10,
-    ) -> bool:
-        """Add a Spotify album to the media objects"""
-        album_obj = {
-            "type": "spotify_album",
-            "id": album_key,
-            "name": name,
-            "spotify_id": spotify_id,
-            "search_query": search_query or name,
-            "description": description,
-            "priority": priority,
-        }
-        self.media_objects.append(album_obj)
         return self.save_media_objects()
 
     def remove_media_object(self, object_id: str) -> bool:
