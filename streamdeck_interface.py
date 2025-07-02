@@ -259,6 +259,7 @@ class StreamDeckController:
         while self.running:
             try:
                 status = self.media_player.get_status()
+
                 # Check for auto-reset
                 self._check_auto_reset()
 
