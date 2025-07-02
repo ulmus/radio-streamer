@@ -27,6 +27,7 @@ except ImportError:
     )
 
 from media_player import MediaPlayer, PlayerState, MediaType
+from media_config_manager import MediaConfigManager
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -36,27 +37,22 @@ logger = logging.getLogger(__name__)
 class StreamDeckController:
     """Controls radio stations via Stream Deck interface"""
 
-    def __init__(self, media_player: MediaPlayer):
+    def __init__(self, media_player: MediaPlayer, config_file: str = "config.json"):
         if not STREAMDECK_AVAILABLE:
             raise RuntimeError(
                 "StreamDeck library not available. Please install streamdeck package."
             )
 
         self.media_player = media_player
+        self.config_manager = MediaConfigManager(config_file)
         self.deck = None
         self.media_buttons = {}  # Maps button index to media_id (stations and albums)
         self.current_playing_button = None
         self.running = False
         self.update_thread = None
 
-        # Colors for different states
-        self.colors = {
-            "inactive": (50, 50, 50),  # Dark gray
-            "playing": (0, 150, 0),  # Green
-            "loading": (255, 165, 0),  # Orange
-            "error": (150, 0, 0),  # Red
-            "available": (0, 100, 200),  # Blue
-        }
+        # Get colors from configuration
+        self.colors = self.config_manager.get_colors()
 
         self._initialize_device()
         if self.deck:
@@ -96,61 +92,58 @@ class StreamDeckController:
         if not self.deck:
             return
 
+        # Get StreamDeck configuration
+        streamdeck_config = self.config_manager.get_streamdeck_config()
+
+        # Set brightness from configuration
+        if self.deck and "brightness" in streamdeck_config:
+            self.deck.set_brightness(streamdeck_config["brightness"])
+
         # Clear all buttons first
         for i in range(self.deck.key_count()):
             self._clear_button(i)
 
-        # Define predefined albums we want on the StreamDeck
-        predefined_albums = {
-            "abbey_road": {
-                "spotify_id": "0ETFjACtuP2ADo6LFhL6HN",
-                "name": "Abbey Road - The Beatles",
-                "search_query": "Abbey Road Beatles",
-            }
-        }
+        # Get media objects in order
+        media_objects = self.config_manager.get_media_objects()
 
-        # Ensure predefined Spotify albums are available
-        for album_key, album_info in predefined_albums.items():
-            spotify_media_id = f"spotify_{album_info['spotify_id']}"
-            if spotify_media_id not in self.media_player.get_media_objects():
-                if self.media_player.spotify_client:
-                    logger.info(f"Adding predefined album: {album_info['name']}")
-                    self.media_player.add_spotify_album(album_info["spotify_id"])
-                else:
-                    logger.warning(
-                        f"Cannot add {album_info['name']} - Spotify client not available"
-                    )
+        # Ensure Spotify albums are added to the media player
+        for media_obj in media_objects:
+            if media_obj.get("type") == "spotify_album":
+                spotify_id = media_obj["spotify_id"]
+                spotify_media_id = f"spotify_{spotify_id}"
+                if spotify_media_id not in self.media_player.get_media_objects():
+                    if self.media_player.spotify_client:
+                        logger.info(f"Adding Spotify album: {media_obj['name']}")
+                        self.media_player.add_spotify_album(spotify_id)
+                    else:
+                        logger.warning(
+                            f"Cannot add {media_obj['name']} - Spotify client not available"
+                        )
 
-        # Get all media objects (radio stations and albums)
-        media_objects = {}
-        for media_id, media_obj in self.media_player.get_media_objects().items():
-            if media_obj.media_type == MediaType.RADIO:
-                media_objects[media_id] = {
-                    "name": media_obj.name,
-                    "type": "radio",
-                    "description": media_obj.description,
-                }
-            elif media_obj.media_type in [MediaType.ALBUM, MediaType.SPOTIFY_ALBUM]:
-                media_objects[media_id] = {
-                    "name": media_obj.name,
-                    "type": "album",
-                    "description": media_obj.description or f"Album: {media_obj.name}",
-                }
-
-        button_index = 0  # Start from first button
-
+        button_index = 0
         self.media_buttons.clear()
 
-        for media_id, media_info in media_objects.items():
+        # Add buttons in the order specified in media_objects.json
+        for media_obj in media_objects:
             if button_index >= self.deck.key_count():
                 logger.warning(
-                    f"Too many media objects for Stream Deck buttons. Skipping {media_id}"
+                    f"Too many media objects for Stream Deck buttons. Skipping {media_obj['id']}"
                 )
                 break
 
-            self.media_buttons[button_index] = media_id
-            self._update_button_image(button_index, media_id, "available")
-            button_index += 1
+            # Determine the media ID used by the media player
+            if media_obj.get("type") == "radio":
+                media_id = media_obj["id"]
+            elif media_obj.get("type") == "spotify_album":
+                media_id = f"spotify_{media_obj['spotify_id']}"
+            else:
+                continue  # Skip unknown types
+
+            # Only add if the media player has this object
+            if media_id in self.media_player.get_media_objects():
+                self.media_buttons[button_index] = media_id
+                self._update_button_image(button_index, media_id, "available")
+                button_index += 1
 
         logger.info(f"Set up {len(self.media_buttons)} media buttons")
 
@@ -190,11 +183,14 @@ class StreamDeckController:
 
     def _update_loop(self):
         """Background loop to update button states"""
+        streamdeck_config = self.config_manager.get_streamdeck_config()
+        update_interval = streamdeck_config.get("update_interval", 0.5)
+
         while self.running:
             try:
                 status = self.media_player.get_status()
                 self._update_button_states(status)
-                time.sleep(0.5)  # Update twice per second
+                time.sleep(update_interval)
             except Exception as e:
                 logger.error(f"Error in update loop: {e}")
                 time.sleep(1)
@@ -306,9 +302,15 @@ class StreamDeckController:
         draw = ImageDraw.Draw(image)
 
         # Try to load a font, fall back to default if not available
+        ui_config = self.config_manager.get_ui_config()
+        font_settings = ui_config.get("font_settings", {})
+
         try:
-            # Adjust font size based on button size
-            font_size = max(12, min(24, image_size[0] // 6))
+            # Adjust font size based on button size and configuration
+            font_size_range = font_settings.get("font_size_range", [12, 24])
+            font_size = max(
+                font_size_range[0], min(font_size_range[1], image_size[0] // 6)
+            )
             font = ImageFont.truetype("/System/Library/Fonts/Arial.ttf", font_size)
         except (OSError, IOError):
             font = ImageFont.load_default()
@@ -317,9 +319,14 @@ class StreamDeckController:
         if is_control:
             display_text = text
         else:
-            # Truncate station name if too long
-            if len(text) > 12:
-                display_text = text[:9] + "..."
+            # Truncate media name if too long
+            max_text_length = font_settings.get("max_text_length", 12)
+            truncate_suffix = font_settings.get("truncate_suffix", "...")
+
+            if len(text) > max_text_length:
+                display_text = (
+                    text[: max_text_length - len(truncate_suffix)] + truncate_suffix
+                )
             else:
                 display_text = text
 

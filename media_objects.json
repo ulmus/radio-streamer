@@ -1,0 +1,66 @@
+[
+  {
+    "type": "radio",
+    "id": "p1",
+    "name": "Sveriges Radio P1",
+    "url": "https://http-live.sr.se/p1-mp3-192",
+    "description": "News, culture and debate",
+    "image_path": "images/stations/p1.png"
+  },
+  {
+    "type": "radio",
+    "id": "p2",
+    "name": "Sveriges Radio P2",
+    "url": "https://http-live.sr.se/p2-mp3-192",
+    "description": "Classical music and cultural programs",
+    "image_path": "images/stations/p2.png"
+  },
+  {
+    "type": "radio",
+    "id": "p3",
+    "name": "Sveriges Radio P3",
+    "url": "https://http-live.sr.se/p3-mp3-192",
+    "description": "Pop, rock and contemporary music",
+    "image_path": "images/stations/p3.png"
+  },
+  {
+    "type": "spotify_album",
+    "id": "abbey_road",
+    "name": "Abbey Road - The Beatles",
+    "spotify_id": "0ETFjACtuP2ADo6LFhL6HN",
+    "search_query": "Abbey Road Beatles",
+    "description": "Classic 1969 Beatles album"
+  },
+  {
+    "type": "radio",
+    "id": "p4_stockholm",
+    "name": "Sveriges Radio P4 Stockholm",
+    "url": "https://http-live.sr.se/p4stockholm-mp3-192",
+    "description": "Local news and music for Stockholm",
+    "image_path": "images/stations/p4_stockholm.png"
+  },
+  {
+    "type": "spotify_album",
+    "id": "dark_side_moon",
+    "name": "The Dark Side of the Moon - Pink Floyd",
+    "spotify_id": "4LH4d3cOWNNsVw41Gqt2kv",
+    "search_query": "Dark Side of the Moon Pink Floyd",
+    "description": "Iconic 1973 Pink Floyd album"
+  },
+  {
+    "type": "radio",
+    "id": "bbc_world",
+    "name": "BBC World Service",
+    "url": "http://stream.live.vc.bbcmedia.co.uk/bbc_world_service",
+    "description": "International news and current affairs",
+    "image_path": "images/stations/bbc_world.png"
+  },
+  {
+    "type": "spotify_album",
+    "id": "thriller",
+    "name": "Thriller - Michael Jackson",
+    "spotify_id": "2ANVost0y2y52ema1E9xAZ",
+    "search_query": "Thriller Michael Jackson",
+    "description": "Best-selling album of all time"
+  }
+]

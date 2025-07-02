@@ -11,6 +11,7 @@ from media_player import (
     MediaObject,
     SpotifyAlbum,
 )
+from media_config_manager import MediaConfigManager
 
 try:
     from streamdeck_interface import StreamDeckController, STREAMDECK_AVAILABLE
@@ -45,6 +46,7 @@ app.add_middleware(
 
 # Global instances
 media_player = MediaPlayer()
+config_manager = MediaConfigManager()
 streamdeck_controller = None
 
 # Initialize Stream Deck if available
@@ -206,11 +208,14 @@ async def add_station_with_streamdeck(station_id: str, station: RadioStation):
 async def remove_station_with_streamdeck(station_id: str):
     """Remove a radio station and refresh Stream Deck"""
     try:
-        from media_player import SWEDISH_STATIONS
-
-        if station_id in SWEDISH_STATIONS:
+        # Check if this is a predefined media object from config
+        predefined_media_objects = {
+            obj["id"] for obj in config_manager.get_media_objects()
+        }
+        if station_id in predefined_media_objects:
             raise HTTPException(
-                status_code=400, detail="Cannot remove predefined Swedish stations"
+                status_code=400,
+                detail="Cannot remove predefined media objects from configuration",
             )
 
         if station_id in media_player.media_objects:

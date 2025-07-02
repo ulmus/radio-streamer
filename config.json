@@ -1,0 +1,28 @@
+{
+  "streamdeck_config": {
+    "brightness": 50,
+    "update_interval": 0.5,
+    "button_layout": {
+      "max_buttons": 15
+    }
+  },
+  "ui_config": {
+    "colors": {
+      "inactive": [50, 50, 50],
+      "playing": [0, 150, 0],
+      "loading": [255, 165, 0],
+      "error": [150, 0, 0],
+      "available": [0, 100, 200]
+    },
+    "font_settings": {
+      "font_size_range": [12, 24],
+      "max_text_length": 12,
+      "truncate_suffix": "..."
+    }
+  },
+  "media_config": {
+    "music_folder": "music",
+    "enable_local_albums": true,
+    "enable_spotify": true
+  }
+}

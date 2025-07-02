@@ -26,24 +26,7 @@ except ImportError:
     spotipy = None
     SpotifyClientCredentials = None
 
-# Predefined Swedish radio stations
-SWEDISH_STATIONS = {
-    "p1": {
-        "name": "Sveriges Radio P1",
-        "url": "https://http-live.sr.se/p1-mp3-192",
-        "description": "News, culture and debate",
-    },
-    "p2": {
-        "name": "Sveriges Radio P2",
-        "url": "https://http-live.sr.se/p2-mp3-192",
-        "description": "Classical music and cultural programs",
-    },
-    "p3": {
-        "name": "Sveriges Radio P3",
-        "url": "https://http-live.sr.se/p3-mp3-192",
-        "description": "Pop, rock and contemporary music",
-    },
-}
+from media_config_manager import MediaConfigManager
 
 
 class PlayerState(str, Enum):
@@ -134,10 +117,14 @@ class MediaPlayer:
         spotify_client_id: Optional[str] = None,
         spotify_client_secret: Optional[str] = None,
         load_env: bool = True,
+        config_file: str = "config.json",
     ):
         # Load environment variables from .env file if available
         if load_env and DOTENV_AVAILABLE:
             load_dotenv()  # type: ignore
+
+        # Initialize configuration manager
+        self.config_manager = MediaConfigManager(config_file)
 
         # Common player state
         self.state = PlayerState.STOPPED
@@ -182,23 +169,45 @@ class MediaPlayer:
         self._playback_thread = None
         self._stop_flag = threading.Event()
 
-        # Load predefined stations and albums
-        self._load_predefined_stations()
-        self.load_albums()
+        # Load media from configuration
+        self._load_configured_media()
 
-    def _load_predefined_stations(self):
-        """Load predefined Swedish radio stations as MediaObjects."""
-        for station_id, station_data in SWEDISH_STATIONS.items():
-            image_path = f"images/stations/{station_id}.png"
-            media_obj = MediaObject(
-                id=station_id,
-                name=station_data["name"],
-                media_type=MediaType.RADIO,
-                url=station_data["url"],
-                description=station_data.get("description", ""),
-                image_path=image_path,
-            )
-            self.media_objects[station_id] = media_obj
+    def _load_configured_media(self):
+        """Load radio stations and predefined Spotify albums from configuration."""
+        # Get media objects in order
+        media_objects = self.config_manager.get_media_objects()
+
+        for media_obj in media_objects:
+            if media_obj.get("type") == "radio":
+                # Load radio station
+                station_id = media_obj["id"]
+                image_path = media_obj.get(
+                    "image_path", f"images/stations/{station_id}.png"
+                )
+                media_object = MediaObject(
+                    id=station_id,
+                    name=media_obj["name"],
+                    media_type=MediaType.RADIO,
+                    url=media_obj["url"],
+                    description=media_obj.get("description", ""),
+                    image_path=image_path,
+                )
+                self.media_objects[station_id] = media_object
+
+            elif media_obj.get("type") == "spotify_album" and self.spotify_client:
+                # Load Spotify album
+                spotify_id = media_obj["spotify_id"]
+                media_id = f"spotify_{spotify_id}"
+
+                # Only add if not already present
+                if media_id not in self.media_objects:
+                    try:
+                        self.add_spotify_album(spotify_id)
+                    except Exception as e:
+                        print(f"Failed to load Spotify album {media_obj['name']}: {e}")
+
+        # Load local albums
+        self.load_albums()
 
     def _stream_radio(self, url: str):
         """Stream radio from URL (runs in separate thread)"""
