@@ -9,6 +9,7 @@ from media_player import (
     Album,
     MediaType,
     MediaObject,
+    SpotifyAlbum,
 )
 
 try:
@@ -240,11 +241,19 @@ async def remove_station_with_streamdeck(station_id: str):
 # Album endpoints
 @app.get("/albums")
 async def get_albums():
-    """Get all available albums"""
+    """Get all available albums (local and Spotify)"""
     albums = {}
     for media_id, media_obj in media_player.get_media_objects().items():
         if media_obj.media_type == MediaType.ALBUM and media_obj.album:
-            albums[media_obj.album.folder_name] = media_obj.album.model_dump()
+            albums[media_obj.album.folder_name] = {
+                "type": "local",
+                "data": media_obj.album.model_dump()
+            }
+        elif media_obj.media_type == MediaType.SPOTIFY_ALBUM and media_obj.spotify_album:
+            albums[media_obj.spotify_album.spotify_id] = {
+                "type": "spotify", 
+                "data": media_obj.spotify_album.model_dump()
+            }
     return albums
 
 
@@ -297,6 +306,55 @@ async def previous_track():
         status_code=400,
         detail="Cannot go back - no previous track available or not playing album",
     )
+
+
+# Spotify endpoints
+@app.get("/spotify/search")
+async def search_spotify_albums(query: str, limit: int = 10):
+    """Search for Spotify albums"""
+    if not media_player.spotify_client:
+        raise HTTPException(status_code=503, detail="Spotify client not available")
+
+    results = media_player.search_spotify_albums(query, limit)
+    return {"albums": results}
+
+
+@app.post("/spotify/albums/{album_id}")
+async def add_spotify_album(album_id: str):
+    """Add a Spotify album to the media library"""
+    if not media_player.spotify_client:
+        raise HTTPException(status_code=503, detail="Spotify client not available")
+
+    if media_player.add_spotify_album(album_id):
+        return {"message": f"Spotify album '{album_id}' added successfully"}
+    raise HTTPException(status_code=400, detail=media_player.error_message)
+
+
+@app.delete("/spotify/albums/{album_id}")
+async def remove_spotify_album(album_id: str):
+    """Remove a Spotify album from the media library"""
+    if media_player.remove_spotify_album(album_id):
+        return {"message": f"Spotify album '{album_id}' removed successfully"}
+    raise HTTPException(status_code=404, detail="Spotify album not found")
+
+
+@app.get("/spotify/albums")
+async def get_spotify_albums():
+    """Get all available Spotify albums"""
+    spotify_albums = {}
+    for media_id, media_obj in media_player.get_media_objects().items():
+        if media_obj.media_type == MediaType.SPOTIFY_ALBUM and media_obj.spotify_album:
+            spotify_albums[media_obj.spotify_album.spotify_id] = media_obj.spotify_album.model_dump()
+    return spotify_albums
+
+
+@app.post("/spotify/albums/{album_id}/play")
+async def play_spotify_album(album_id: str, track_number: int = 1):
+    """Start playing a Spotify album from a specific track"""
+    spotify_media_id = f"spotify_{album_id}"
+    if media_player.play_media(spotify_media_id, track_number):
+        return {"message": f"Playing Spotify album '{album_id}' from track {track_number}"}
+    raise HTTPException(status_code=400, detail=media_player.error_message)
 
 
 # Cleanup function

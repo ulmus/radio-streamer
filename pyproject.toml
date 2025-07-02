@@ -15,4 +15,8 @@ dependencies = [
     "pillow>=10.0.0",
     "textual>=0.47.0",
     "rich>=13.0.0",
+    "spotipy>=2.22.1",
 ]
+
+[project.optional-dependencies]
+spotify = ["spotipy>=2.22.1"]
