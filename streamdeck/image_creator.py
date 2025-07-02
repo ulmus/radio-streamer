@@ -34,7 +34,6 @@ else:
         class MediaType:
             RADIO = "radio"
             ALBUM = "album"
-            SPOTIFY_ALBUM = "spotify_album"
         
         class PlayerState:
             PLAYING = "playing"
@@ -380,11 +379,6 @@ class StreamDeckImageCreator:
         if media_obj.image_path and os.path.exists(media_obj.image_path):
             return media_obj.image_path
 
-        # For Spotify albums, try to use the album art URL (could be cached)
-        if (media_obj.media_type == MediaType.SPOTIFY_ALBUM and 
-            media_obj.spotify_album and media_obj.spotify_album.album_art_url):
-            # TODO: Implement album art caching from Spotify URLs
-            return None
 
         # For radio stations, check the images/stations directory
         if media_obj.media_type == MediaType.RADIO:

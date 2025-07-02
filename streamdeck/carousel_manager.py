@@ -18,7 +18,6 @@ else:
         class MediaType:
             RADIO = "radio"
             ALBUM = "album"
-            SPOTIFY_ALBUM = "spotify_album"
 
 logger = logging.getLogger(__name__)
 
@@ -56,26 +55,11 @@ class CarouselManager:
         # Get media objects from configuration
         config_media_objects = self.config_manager.get_media_objects()
 
-        # Ensure Spotify albums are available in media player
-        for media_obj in config_media_objects:
-            if media_obj.get("type") == "spotify_album":
-                spotify_id = media_obj["spotify_id"]
-                spotify_media_id = f"spotify_{spotify_id}"
-                if spotify_media_id not in self.media_player.get_media_objects():
-                    if self.media_player.spotify_client:
-                        logger.info(f"Adding Spotify album: {media_obj['name']}")
-                        self.media_player.add_spotify_album(spotify_id)
-                    else:
-                        logger.warning(
-                            f"Cannot add {media_obj['name']} - Spotify client not available"
-                        )
 
         # Build list of available media objects in configured order
         for media_obj in config_media_objects:
             if media_obj.get("type") == "radio":
                 media_id = media_obj["id"]
-            elif media_obj.get("type") == "spotify_album":
-                media_id = f"spotify_{media_obj['spotify_id']}"
             else:
                 continue
 
