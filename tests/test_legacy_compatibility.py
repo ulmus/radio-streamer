@@ -207,7 +207,9 @@ class TestNowPlayingButton:
         media_objects = media_player.get_media_objects()
         assert isinstance(media_objects, dict)
 
-    @pytest.mark.skip(reason="StreamDeck behavior changed - no longer raises RuntimeError in this scenario")
+    @pytest.mark.skip(
+        reason="StreamDeck behavior changed - no longer raises RuntimeError in this scenario"
+    )
     @patch("streamdeck.STREAMDECK_AVAILABLE", False)
     def test_now_playing_without_streamdeck(self, temp_config_file, temp_music_folder):
         """Test now playing functionality when StreamDeck is not available"""
@@ -298,7 +300,9 @@ class TestStreamDeckAbbeyRoad:
         # Should be able to handle album objects (even if none present)
         assert isinstance(album_objects, list)
 
-    @pytest.mark.skip(reason="StreamDeck behavior changed - no longer raises RuntimeError in this scenario")
+    @pytest.mark.skip(
+        reason="StreamDeck behavior changed - no longer raises RuntimeError in this scenario"
+    )
     @patch("streamdeck.STREAMDECK_AVAILABLE", False)
     def test_abbey_road_without_streamdeck(self, temp_config_file, temp_music_folder):
         """Test Abbey Road functionality when StreamDeck is not available"""

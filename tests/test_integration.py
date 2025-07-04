@@ -408,7 +408,7 @@ class TestPerformanceIntegration:
     def test_api_response_time(self, mock_media_player):
         """Test API response times"""
         from media.types import PlayerStatus, PlayerState
-        
+
         # Mock fast responses
         mock_status = PlayerStatus(
             state=PlayerState.STOPPED,

@@ -19,7 +19,7 @@ from media import (
     MediaObject,
     PlayerStatus,
     VLC_AVAILABLE,
-    DOTENV_AVAILABLE
+    DOTENV_AVAILABLE,
 )
 
 # Configure logging
@@ -29,29 +29,33 @@ logger = logging.getLogger(__name__)
 
 class MediaPlayer:
     """Unified media player that handles radio stations and local albums
-    
+
     This is a compatibility wrapper around the new modular implementation.
     """
-    
+
     def __init__(
         self,
         music_folder: str = "music",
-        spotify_client_id: Optional[str] = None,  # Kept for backward compatibility, ignored
-        spotify_client_secret: Optional[str] = None,  # Kept for backward compatibility, ignored
+        spotify_client_id: Optional[
+            str
+        ] = None,  # Kept for backward compatibility, ignored
+        spotify_client_secret: Optional[
+            str
+        ] = None,  # Kept for backward compatibility, ignored
         load_env: bool = True,
         config_file: str = "config.json",
     ):
         """Initialize MediaPlayer with backward compatibility"""
         if not VLC_AVAILABLE:
-            raise RuntimeError("VLC library not available. Please install python-vlc package.")
-        
+            raise RuntimeError(
+                "VLC library not available. Please install python-vlc package."
+            )
+
         # Create the new modular media player
         self._player = ModularMediaPlayer(
-            music_folder=music_folder,
-            load_env=load_env,
-            config_file=config_file
+            music_folder=music_folder, load_env=load_env, config_file=config_file
         )
-        
+
         # Provide backward compatibility properties
         self.config_manager = self._player.config_manager
         self.spotify_client = None  # Spotify integration removed
@@ -119,8 +123,13 @@ class MediaPlayer:
 
     def cleanup(self):
         """Clean up resources"""
-        return self._player.cleanup()
+        if hasattr(self, "_player") and self._player:
+            return self._player.cleanup()
 
     def __del__(self):
         """Destructor to ensure cleanup"""
-        self.cleanup()
+        try:
+            self.cleanup()
+        except (AttributeError, TypeError):
+            # Ignore cleanup errors during destruction
+            pass
