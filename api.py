@@ -127,7 +127,7 @@ def get_albums():
                 if is_album:
                     # Safely extract attributes to avoid circular references
                     # Use str() to convert any non-serializable objects to strings
-                    album_data = {
+                    album_data: dict = {
                         "id": str(getattr(obj, "id", media_id)),
                         "name": str(getattr(obj, "name", "")),
                         "media_type": str(getattr(obj, "media_type", "album")),

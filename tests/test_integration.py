@@ -407,15 +407,18 @@ class TestPerformanceIntegration:
     @patch("api.media_player")
     def test_api_response_time(self, mock_media_player):
         """Test API response times"""
+        from media.types import PlayerStatus, PlayerState
+        
         # Mock fast responses
-        mock_media_player.get_status.return_value = Mock(
-            state="stopped",
+        mock_status = PlayerStatus(
+            state=PlayerState.STOPPED,
             volume=0.5,
             current_media=None,
             current_track=None,
             track_position=0,
             error_message=None,
         )
+        mock_media_player.get_status.return_value = mock_status
         mock_media_player.get_media_objects.return_value = {}
 
         client = TestClient(app)

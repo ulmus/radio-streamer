@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 
 from api import app
 from media_player import MediaPlayer
-from media.types import PlayerState, MediaType
+from media.types import PlayerState, PlayerStatus, MediaType
 
 
 class TestFullSystemIntegration:
@@ -147,8 +147,8 @@ class TestErrorRecovery:
 
         # Reset mock and test recovery
         mock_media_player.get_status.side_effect = None
-        mock_status = Mock(
-            state="stopped",
+        mock_status = PlayerStatus(
+            state=PlayerState.STOPPED,
             volume=0.5,
             current_media=None,
             current_track=None,
