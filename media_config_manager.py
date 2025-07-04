@@ -26,8 +26,19 @@ class MediaConfigManager:
         self.media_objects_file = Path(media_objects_file)
         self.config: Dict[str, Any] = {}
         self.media_objects: List[Dict[str, Any]] = []
+        
+        # Load config first to check if we should load media objects
         self.load_config()
-        self.load_media_objects()
+        
+        # Conditionally load media objects based on config
+        media_config = self.config.get("media_config", {})
+        load_media_objects = media_config.get("load_media_objects_file", True)
+        
+        if load_media_objects:
+            self.load_media_objects()
+        else:
+            logger.info("Media objects file loading disabled by configuration")
+            self.media_objects = []
 
     def load_config(self) -> Dict[str, Any]:
         """Load general configuration from JSON file"""
@@ -250,6 +261,9 @@ class MediaConfigManager:
                 "music_folder": "music",
                 "enable_local_albums": True,
                 "enable_spotify": True,
+                "enable_sonos": False,
+                "sonos_speaker_ip": None,
+                "load_media_objects_file": True,
             },
         }
 
@@ -329,3 +343,32 @@ class MediaConfigManager:
             self.save_config()
             return True
         return False
+
+    def set_media_objects_loading(self, enabled: bool) -> bool:
+        """Enable or disable media objects file loading"""
+        media_config = self.config.get("media_config", {})
+        media_config["load_media_objects_file"] = enabled
+        self.config["media_config"] = media_config
+        
+        if enabled:
+            # Load media objects if enabling
+            self.load_media_objects()
+        else:
+            # Clear media objects if disabling
+            self.media_objects = []
+            logger.info("Media objects cleared due to disabled loading")
+        
+        return True
+
+    def is_media_objects_loading_enabled(self) -> bool:
+        """Check if media objects file loading is enabled"""
+        media_config = self.config.get("media_config", {})
+        return media_config.get("load_media_objects_file", True)
+
+    def reload_media_objects_if_enabled(self) -> bool:
+        """Reload media objects only if loading is enabled"""
+        if self.is_media_objects_loading_enabled():
+            return self.load_media_objects()
+        else:
+            logger.info("Media objects loading is disabled, skipping reload")
+            return False

@@ -6,13 +6,13 @@ and provides a unified interface for playing radio stations and local albums.
 """
 
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
-from .types import PlayerState, MediaType, MediaObject, PlayerStatus, Track
+from .types import PlayerState, MediaType, MediaObject, PlayerStatus
 from .player_core import VLCPlayerCore
 from .radio_manager import RadioManager
 from .album_manager import AlbumManager
-# from .sonos_manager import SonosManager  # Commented out - not implemented yet
+from .sonos_manager import SonosManager
 
 try:
     from media_config_manager import MediaConfigManager
@@ -44,7 +44,14 @@ class MediaPlayer:
         # Initialize managers
         self.radio_manager = RadioManager(self.player_core)
         self.album_manager = AlbumManager(self.player_core, music_folder)
-        # self.sonos_manager = SonosManager("Living Room")  # Commented out - not implemented yet
+
+        # Initialize Sonos manager if enabled
+        self.sonos_manager = None
+        if self.config_manager:
+            media_config = self.config_manager.config.get("media_config", {})
+            if media_config.get("enable_sonos", False):
+                sonos_speaker_ip = media_config.get("sonos_speaker_ip")
+                self.sonos_manager = SonosManager(self.player_core, sonos_speaker_ip)
 
         # Media objects management
         self.media_objects: Dict[str, MediaObject] = {}
@@ -59,15 +66,26 @@ class MediaPlayer:
         album_media_objects = self.album_manager.create_media_objects()
         self.media_objects.update(album_media_objects)
 
-        # Load media objects from configuration if available
-        if self.config_manager:
-            config_media_objects = self.config_manager.get_media_objects()
+        # Load Sonos favorites if Sonos manager is available
+        if self.sonos_manager:
+            sonos_media_objects = self.sonos_manager.create_media_objects()
+            self.media_objects.update(sonos_media_objects)
 
-            for media_obj in config_media_objects:
-                media_type = media_obj.get("type")
-                if media_type == "radio":
-                    self._load_radio_station(media_obj)
-            
+        # Load media objects from configuration if available and enabled
+        if self.config_manager:
+            # Check if media objects loading is enabled
+            if self.config_manager.is_media_objects_loading_enabled():
+                config_media_objects = self.config_manager.get_media_objects()
+
+                for media_obj in config_media_objects:
+                    media_type = media_obj.get("type")
+                    if media_type == "radio":
+                        self._load_radio_station(media_obj)
+                        
+                logger.debug(f"Loaded {len(config_media_objects)} media objects from configuration file")
+            else:
+                logger.info("Media objects file loading is disabled in configuration")
+
             # Also load stations from config.json (for backward compatibility and testing)
             config_stations = self.config_manager.config.get("stations", {})
             for station_id, station_data in config_stations.items():
@@ -126,6 +144,13 @@ class MediaPlayer:
             return self.radio_manager.play_station(media_obj)
         elif media_obj.media_type == MediaType.ALBUM:
             return self.album_manager.play_album(media_obj, track_number)
+        elif media_obj.media_type == MediaType.SONOS:
+            if self.sonos_manager:
+                return self.sonos_manager.play_favorite(media_obj)
+            else:
+                self.player_core.error_message = "Sonos manager not available"
+                self.player_core.state = PlayerState.ERROR
+                return False
 
         self.player_core.error_message = (
             f"Unsupported media type: {media_obj.media_type}"
@@ -140,11 +165,12 @@ class MediaPlayer:
             # Stop all managers
             radio_result = self.radio_manager.stop()
             album_result = self.album_manager.stop()
+            sonos_result = self.sonos_manager.stop() if self.sonos_manager else True
 
             # Stop core player
             core_result = self.player_core.stop()
 
-            return radio_result and album_result and core_result
+            return radio_result and album_result and sonos_result and core_result
 
         except Exception as e:
             self.player_core.error_message = f"Stop error: {str(e)}"
@@ -159,6 +185,8 @@ class MediaPlayer:
                 return self.radio_manager.pause()
             elif self.album_manager.is_playing_album():
                 return self.album_manager.pause()
+            elif self.sonos_manager and self.sonos_manager.is_playing_favorite():
+                return self.sonos_manager.pause()
 
             return False
 
@@ -175,6 +203,8 @@ class MediaPlayer:
                 return self.radio_manager.resume()
             elif self.album_manager.get_current_album():
                 return self.album_manager.resume()
+            elif self.sonos_manager and self.sonos_manager.get_current_favorite():
+                return self.sonos_manager.resume()
 
             return False
 
@@ -193,15 +223,19 @@ class MediaPlayer:
 
     # Album-specific controls
     def next_track(self) -> bool:
-        """Skip to next track in current album"""
+        """Skip to next track in current album or Sonos queue"""
         if self.album_manager.is_playing_album():
             return self.album_manager.next_track()
+        elif self.sonos_manager and self.sonos_manager.is_playing_favorite():
+            return self.sonos_manager.next_track()
         return False
 
     def previous_track(self) -> bool:
-        """Go to previous track in current album"""
+        """Go to previous track in current album or Sonos queue"""
         if self.album_manager.is_playing_album():
             return self.album_manager.previous_track()
+        elif self.sonos_manager and self.sonos_manager.is_playing_favorite():
+            return self.sonos_manager.previous_track()
         return False
 
     # Status and information
@@ -221,6 +255,8 @@ class MediaPlayer:
                 track_position = (
                     current_media.current_track_position + 1 if current_track else 0
                 )
+        elif self.sonos_manager and self.sonos_manager.get_current_favorite():
+            current_media = self.sonos_manager.get_current_favorite()
 
         return PlayerStatus(
             state=self.player_core.state,
@@ -251,11 +287,47 @@ class MediaPlayer:
 
         return result
 
+    # Sonos management
+    def reload_sonos_favorites(self) -> bool:
+        """Reload Sonos favorites"""
+        if not self.sonos_manager:
+            return False
+
+        result = self.sonos_manager.reload_favorites()
+        if result:
+            # Update media objects with new Sonos favorites
+            sonos_media_objects = self.sonos_manager.create_media_objects()
+
+            # Remove old Sonos entries
+            old_sonos_ids = [
+                mid for mid in self.media_objects.keys() if mid.startswith("sonos_")
+            ]
+            for sonos_id in old_sonos_ids:
+                del self.media_objects[sonos_id]
+
+            # Add new Sonos entries
+            self.media_objects.update(sonos_media_objects)
+
+        return result
+
+    def get_sonos_speaker_info(self) -> Optional[dict]:
+        """Get information about the connected Sonos speaker"""
+        if not self.sonos_manager:
+            return None
+        return self.sonos_manager.get_speaker_info()
+
+    def is_sonos_connected(self) -> bool:
+        """Check if Sonos speaker is connected"""
+        if not self.sonos_manager:
+            return False
+        return self.sonos_manager.is_connected()
+
     def cleanup(self):
         """Clean up resources"""
         try:
             self.stop()
             self.player_core.cleanup()
+            # No specific cleanup needed for Sonos manager
             logger.info("Media player cleanup completed")
         except Exception as e:
             logger.error(f"Error during cleanup: {e}")
@@ -263,3 +335,22 @@ class MediaPlayer:
     def __del__(self):
         """Destructor to ensure cleanup"""
         self.cleanup()
+
+    def set_media_objects_loading(self, enabled: bool) -> bool:
+        """Enable or disable loading of media objects from file"""
+        if not self.config_manager:
+            return False
+        
+        result = self.config_manager.set_media_objects_loading(enabled)
+        
+        if result:
+            # Reload media to reflect the change
+            self._load_media()
+            
+        return result
+
+    def is_media_objects_loading_enabled(self) -> bool:
+        """Check if media objects file loading is enabled"""
+        if not self.config_manager:
+            return False
+        return self.config_manager.is_media_objects_loading_enabled()

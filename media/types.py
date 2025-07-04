@@ -5,24 +5,27 @@ Contains all the Pydantic models and enums used throughout the media player syst
 """
 
 from enum import Enum
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 try:
     from pydantic import BaseModel, HttpUrl
+
     PYDANTIC_AVAILABLE = True
 except ImportError:
     PYDANTIC_AVAILABLE = False
+
     # Fallback base classes for testing
     class BaseModel:
         def __init__(self, **kwargs):
             for key, value in kwargs.items():
                 setattr(self, key, value)
-    
+
     HttpUrl = str
 
 
 class PlayerState(str, Enum):
     """Player state enumeration"""
+
     STOPPED = "stopped"
     PLAYING = "playing"
     PAUSED = "paused"
@@ -32,12 +35,15 @@ class PlayerState(str, Enum):
 
 class MediaType(str, Enum):
     """Media type enumeration"""
+
     RADIO = "radio"
     ALBUM = "album"
+    SONOS = "sonos"
 
 
 class RadioStation(BaseModel):
     """Radio station model"""
+
     name: str
     url: HttpUrl
     description: Optional[str] = None
@@ -45,16 +51,16 @@ class RadioStation(BaseModel):
 
 class Track(BaseModel):
     """Local music track model"""
+
     track_number: int
     title: str
     filename: str
     file_path: str
 
 
-
-
 class Album(BaseModel):
     """Local album model"""
+
     name: str
     folder_name: str
     tracks: List[Track]
@@ -62,10 +68,9 @@ class Album(BaseModel):
     track_count: int
 
 
-
-
 class MediaObject(BaseModel):
     """Unified media object that can represent radio stations or local albums"""
+
     id: str
     name: str
     media_type: MediaType
@@ -81,6 +86,7 @@ class MediaObject(BaseModel):
 
 class PlayerStatus(BaseModel):
     """Current player status"""
+
     state: PlayerState
     current_media: Optional[MediaObject] = None
     current_track: Optional[Track] = None
