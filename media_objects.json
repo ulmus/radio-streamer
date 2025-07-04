@@ -31,7 +31,6 @@
     "description": "Local news and music for Stockholm",
     "image_path": "images/stations/p4_stockholm.png"
   },
-
   {
     "type": "radio",
     "id": "bbc_world",
@@ -39,5 +38,165 @@
     "url": "http://stream.live.vc.bbcmedia.co.uk/bbc_world_service",
     "description": "International news and current affairs",
     "image_path": "images/stations/bbc_world.png"
+  },
+  {
+    "type": "radio",
+    "id": "new_station",
+    "name": "New Station",
+    "url": "http://example.com/new.mp3",
+    "description": "New test station",
+    "image_path": ""
+  },
+  {
+    "type": "radio",
+    "id": "save_test",
+    "name": "Save Test Station",
+    "url": "http://example.com/save.mp3",
+    "description": "",
+    "image_path": ""
+  },
+  {
+    "type": "radio",
+    "id": "new_station",
+    "name": "New Station",
+    "url": "http://example.com/new.mp3",
+    "description": "New test station",
+    "image_path": ""
+  },
+  {
+    "type": "radio",
+    "id": "save_test",
+    "name": "Save Test Station",
+    "url": "http://example.com/save.mp3",
+    "description": "",
+    "image_path": ""
+  },
+  {
+    "type": "radio",
+    "id": "new_station",
+    "name": "New Station",
+    "url": "http://example.com/new.mp3",
+    "description": "New test station",
+    "image_path": ""
+  },
+  {
+    "type": "radio",
+    "id": "save_test",
+    "name": "Save Test Station",
+    "url": "http://example.com/save.mp3",
+    "description": "",
+    "image_path": ""
+  },
+  {
+    "type": "radio",
+    "id": "new_station",
+    "name": "New Station",
+    "url": "http://example.com/new.mp3",
+    "description": "New test station",
+    "image_path": ""
+  },
+  {
+    "type": "radio",
+    "id": "save_test",
+    "name": "Save Test Station",
+    "url": "http://example.com/save.mp3",
+    "description": "",
+    "image_path": ""
+  },
+  {
+    "type": "radio",
+    "id": "new_station",
+    "name": "New Station",
+    "url": "http://example.com/new.mp3",
+    "description": "New test station",
+    "image_path": ""
+  },
+  {
+    "type": "radio",
+    "id": "save_test",
+    "name": "Save Test Station",
+    "url": "http://example.com/save.mp3",
+    "description": "",
+    "image_path": ""
+  },
+  {
+    "type": "radio",
+    "id": "new_station",
+    "name": "New Station",
+    "url": "http://example.com/new.mp3",
+    "description": "New test station",
+    "image_path": ""
+  },
+  {
+    "type": "radio",
+    "id": "save_test",
+    "name": "Save Test Station",
+    "url": "http://example.com/save.mp3",
+    "description": "",
+    "image_path": ""
+  },
+  {
+    "type": "radio",
+    "id": "new_station",
+    "name": "New Station",
+    "url": "http://example.com/new.mp3",
+    "description": "New test station",
+    "image_path": ""
+  },
+  {
+    "type": "radio",
+    "id": "save_test",
+    "name": "Save Test Station",
+    "url": "http://example.com/save.mp3",
+    "description": "",
+    "image_path": ""
+  },
+  {
+    "type": "radio",
+    "id": "new_station",
+    "name": "New Station",
+    "url": "http://example.com/new.mp3",
+    "description": "New test station",
+    "image_path": ""
+  },
+  {
+    "type": "radio",
+    "id": "save_test",
+    "name": "Save Test Station",
+    "url": "http://example.com/save.mp3",
+    "description": "",
+    "image_path": ""
+  },
+  {
+    "type": "radio",
+    "id": "new_station",
+    "name": "New Station",
+    "url": "http://example.com/new.mp3",
+    "description": "New test station",
+    "image_path": ""
+  },
+  {
+    "type": "radio",
+    "id": "save_test",
+    "name": "Save Test Station",
+    "url": "http://example.com/save.mp3",
+    "description": "",
+    "image_path": ""
+  },
+  {
+    "type": "radio",
+    "id": "new_station",
+    "name": "New Station",
+    "url": "http://example.com/new.mp3",
+    "description": "New test station",
+    "image_path": ""
+  },
+  {
+    "type": "radio",
+    "id": "save_test",
+    "name": "Save Test Station",
+    "url": "http://example.com/save.mp3",
+    "description": "",
+    "image_path": ""
   }
 ]

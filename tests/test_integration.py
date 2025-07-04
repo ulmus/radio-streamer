@@ -9,7 +9,7 @@ import os
 from unittest.mock import Mock, patch, MagicMock
 from fastapi.testclient import TestClient
 
-from app import app
+from api import app
 from media_player import MediaPlayer
 from media.types import PlayerState, MediaType
 

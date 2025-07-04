@@ -280,3 +280,42 @@ class MediaConfigManager:
                 "priority": 1,
             },
         ]
+
+    def get_stations(self) -> Dict[str, Any]:
+        """Returns the dictionary of radio stations."""
+        return self.config.get("stations", {})
+
+    def add_station(self, station_id: str, station_data: Dict[str, Any]) -> bool:
+        """
+        Adds a new station to the configuration.
+
+        Args:
+            station_id: The ID of the new station.
+            station_data: The data for the new station.
+
+        Returns:
+            True if the station was added, False otherwise.
+        """
+        if "name" not in station_data or "url" not in station_data:
+            return False
+        if "stations" not in self.config:
+            self.config["stations"] = {}
+        self.config["stations"][station_id] = station_data
+        self.save_config()
+        return True
+
+    def remove_station(self, station_id: str) -> bool:
+        """
+        Removes a station from the configuration.
+
+        Args:
+            station_id: The ID of the station to remove.
+
+        Returns:
+            True if the station was removed, False otherwise.
+        """
+        if "stations" in self.config and station_id in self.config["stations"]:
+            del self.config["stations"][station_id]
+            self.save_config()
+            return True
+        return False

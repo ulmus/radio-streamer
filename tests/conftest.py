@@ -5,7 +5,7 @@ Pytest configuration and fixtures for radio-streamer tests
 import os
 import tempfile
 import pytest
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock, MagicMock, patch
 from typing import Dict, Any
 
 # Add project root to path for imports
@@ -127,7 +127,7 @@ def mock_streamdeck():
 @pytest.fixture
 def mock_media_player(mock_vlc, temp_config_file, temp_music_folder):
     """Create a mock media player for testing"""
-    with pytest.mock.patch("vlc.Instance") as mock_vlc_instance:
+    with patch("vlc.Instance") as mock_vlc_instance:
         mock_vlc_instance.return_value = mock_vlc.Instance()
 
         # Import after mocking VLC
@@ -178,7 +178,7 @@ def sample_album_data():
 def api_client():
     """Create a test client for the FastAPI app"""
     from fastapi.testclient import TestClient
-    from app import app
+    from api import app
 
     return TestClient(app)
 

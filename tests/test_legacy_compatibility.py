@@ -315,7 +315,7 @@ class TestAPICompatibility:
     def test_api_server_endpoints(self):
         """Test that API endpoints are available"""
         from fastapi.testclient import TestClient
-        from app import app
+        from api import app
 
         client = TestClient(app)
 
@@ -340,7 +340,7 @@ class TestAPICompatibility:
     def test_api_error_handling(self):
         """Test API error handling"""
         from fastapi.testclient import TestClient
-        from app import app
+        from api import app
 
         client = TestClient(app)
 

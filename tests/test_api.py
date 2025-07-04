@@ -7,7 +7,8 @@ from fastapi.testclient import TestClient
 from unittest.mock import Mock, patch
 import json
 
-from app import app
+from api import app
+from media.types import MediaObject, MediaType, PlayerState, PlayerStatus
 
 
 class TestAPIBasics:
@@ -43,11 +44,11 @@ class TestStationsAPI:
         """Test getting all stations"""
         # Mock media player response
         mock_media_objects = {
-            "test_radio": Mock(
+            "test_radio": MediaObject(
                 id="test_radio",
                 name="Test Radio",
-                media_type="radio",
-                url="http://example.com/stream.mp3",
+                media_type=MediaType.RADIO,
+                path="http://example.com/stream.mp3",
                 description="Test station",
             )
         }
@@ -60,10 +61,8 @@ class TestStationsAPI:
         data = response.json()
         assert isinstance(data, dict)
 
-        if data:  # If we have stations
-            # Check structure of first station
-            first_station = list(data.values())[0]
-            assert "name" in first_station
+        assert "test_radio" in data
+        assert data["test_radio"]["name"] == "Test Radio"
 
     @patch("api.media_player")
     def test_add_station(self, mock_media_player):
@@ -103,13 +102,9 @@ class TestPlaybackAPI:
     def test_get_status(self, mock_media_player):
         """Test getting player status"""
         # Mock player status
-        mock_status = Mock(
-            state="stopped",
+        mock_status = PlayerStatus(
+            state=PlayerState.STOPPED,
             volume=0.5,
-            current_media=None,
-            current_track=None,
-            track_position=0,
-            error_message=None,
         )
         mock_media_player.get_status.return_value = mock_status
 
@@ -120,6 +115,7 @@ class TestPlaybackAPI:
         data = response.json()
         assert "state" in data
         assert "volume" in data
+        assert data["state"] == "stopped"
 
     @patch("api.media_player")
     def test_play_media(self, mock_media_player):
