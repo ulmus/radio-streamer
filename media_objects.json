@@ -198,5 +198,133 @@
     "url": "http://example.com/save.mp3",
     "description": "",
     "image_path": ""
+  },
+  {
+    "type": "radio",
+    "id": "new_station",
+    "name": "New Station",
+    "url": "http://example.com/new.mp3",
+    "description": "New test station",
+    "image_path": ""
+  },
+  {
+    "type": "radio",
+    "id": "save_test",
+    "name": "Save Test Station",
+    "url": "http://example.com/save.mp3",
+    "description": "",
+    "image_path": ""
+  },
+  {
+    "type": "radio",
+    "id": "new_station",
+    "name": "New Station",
+    "url": "http://example.com/new.mp3",
+    "description": "New test station",
+    "image_path": ""
+  },
+  {
+    "type": "radio",
+    "id": "save_test",
+    "name": "Save Test Station",
+    "url": "http://example.com/save.mp3",
+    "description": "",
+    "image_path": ""
+  },
+  {
+    "type": "radio",
+    "id": "new_station",
+    "name": "New Station",
+    "url": "http://example.com/new.mp3",
+    "description": "New test station",
+    "image_path": ""
+  },
+  {
+    "type": "radio",
+    "id": "save_test",
+    "name": "Save Test Station",
+    "url": "http://example.com/save.mp3",
+    "description": "",
+    "image_path": ""
+  },
+  {
+    "type": "radio",
+    "id": "new_station",
+    "name": "New Station",
+    "url": "http://example.com/new.mp3",
+    "description": "New test station",
+    "image_path": ""
+  },
+  {
+    "type": "radio",
+    "id": "save_test",
+    "name": "Save Test Station",
+    "url": "http://example.com/save.mp3",
+    "description": "",
+    "image_path": ""
+  },
+  {
+    "type": "radio",
+    "id": "new_station",
+    "name": "New Station",
+    "url": "http://example.com/new.mp3",
+    "description": "New test station",
+    "image_path": ""
+  },
+  {
+    "type": "radio",
+    "id": "save_test",
+    "name": "Save Test Station",
+    "url": "http://example.com/save.mp3",
+    "description": "",
+    "image_path": ""
+  },
+  {
+    "type": "radio",
+    "id": "new_station",
+    "name": "New Station",
+    "url": "http://example.com/new.mp3",
+    "description": "New test station",
+    "image_path": ""
+  },
+  {
+    "type": "radio",
+    "id": "save_test",
+    "name": "Save Test Station",
+    "url": "http://example.com/save.mp3",
+    "description": "",
+    "image_path": ""
+  },
+  {
+    "type": "radio",
+    "id": "new_station",
+    "name": "New Station",
+    "url": "http://example.com/new.mp3",
+    "description": "New test station",
+    "image_path": ""
+  },
+  {
+    "type": "radio",
+    "id": "save_test",
+    "name": "Save Test Station",
+    "url": "http://example.com/save.mp3",
+    "description": "",
+    "image_path": ""
+  },
+  {
+    "type": "radio",
+    "id": "new_station",
+    "name": "New Station",
+    "url": "http://example.com/new.mp3",
+    "description": "New test station",
+    "image_path": ""
+  },
+  {
+    "type": "radio",
+    "id": "save_test",
+    "name": "Save Test Station",
+    "url": "http://example.com/save.mp3",
+    "description": "",
+    "image_path": ""
   }
 ]

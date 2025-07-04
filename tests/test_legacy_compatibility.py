@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 class TestSpotifyIntegration:
     @patch("media_player.VLC_AVAILABLE", True)
-    @patch("media.media_player.vlc")
+    @patch("media.player_core.vlc")
     def test_media_player_spotify_methods_disabled(
         self, mock_vlc, temp_config_file, temp_music_folder
     ):
@@ -178,7 +178,7 @@ class TestNowPlayingButton:
     """Tests converted from test_now_playing_button.py"""
 
     @patch("media_player.VLC_AVAILABLE", True)
-    @patch("media.media_player.vlc")
+    @patch("media.player_core.vlc")
     def test_now_playing_button_logic(
         self, mock_vlc, temp_config_file, temp_music_folder
     ):
@@ -263,7 +263,7 @@ class TestStreamDeckAbbeyRoad:
     """Tests converted from test_streamdeck_abbey_road.py"""
 
     @patch("media_player.VLC_AVAILABLE", True)
-    @patch("media.media_player.vlc")
+    @patch("media.player_core.vlc")
     def test_abbey_road_media_object_structure(
         self, mock_vlc, temp_config_file, temp_music_folder
     ):

@@ -18,7 +18,7 @@ class TestAPIMediaPlayerIntegration:
     """Test integration between API and MediaPlayer"""
 
     @patch("media_player.VLC_AVAILABLE", True)
-    @patch("media.media_player.vlc")
+    @patch("media.player_core.vlc")
     @patch("api.media_player")
     def test_api_media_player_flow(
         self, mock_api_player, mock_vlc, temp_config_file, temp_music_folder
@@ -78,7 +78,7 @@ class TestMediaPlayerConfigIntegration:
     """Test integration between MediaPlayer and configuration"""
 
     @patch("media_player.VLC_AVAILABLE", True)
-    @patch("media.media_player.vlc")
+    @patch("media.player_core.vlc")
     def test_media_player_config_loading(
         self, mock_vlc, temp_config_file, temp_music_folder
     ):
@@ -106,7 +106,7 @@ class TestMediaPlayerConfigIntegration:
         assert station_found, "Test station from config not found"
 
     @patch("media_player.VLC_AVAILABLE", True)
-    @patch("media.media_player.vlc")
+    @patch("media.player_core.vlc")
     def test_media_player_album_loading(
         self, mock_vlc, temp_config_file, temp_music_folder
     ):
@@ -142,7 +142,7 @@ class TestStreamDeckIntegration:
     """Test StreamDeck integration (requires hardware)"""
 
     @patch("media_player.VLC_AVAILABLE", True)
-    @patch("media.media_player.vlc")
+    @patch("media.player_core.vlc")
     def test_streamdeck_media_player_integration(
         self, mock_vlc, temp_config_file, temp_music_folder
     ):
@@ -177,7 +177,7 @@ class TestEndToEndFlow:
     """Test complete end-to-end workflows"""
 
     @patch("media_player.VLC_AVAILABLE", True)
-    @patch("media.media_player.vlc")
+    @patch("media.player_core.vlc")
     def test_complete_radio_workflow(
         self, mock_vlc, temp_config_file, temp_music_folder
     ):
@@ -244,7 +244,7 @@ class TestEndToEndFlow:
         player.cleanup()
 
     @patch("media_player.VLC_AVAILABLE", True)
-    @patch("media.media_player.vlc")
+    @patch("media.player_core.vlc")
     def test_complete_album_workflow(
         self, mock_vlc, temp_config_file, temp_music_folder
     ):
@@ -304,7 +304,7 @@ class TestErrorHandlingIntegration:
     """Test error handling across components"""
 
     @patch("media_player.VLC_AVAILABLE", True)
-    @patch("media.media_player.vlc")
+    @patch("media.player_core.vlc")
     def test_vlc_error_handling(self, mock_vlc, temp_config_file, temp_music_folder):
         """Test handling of VLC errors"""
         # Setup VLC mock to simulate errors
@@ -339,6 +339,9 @@ class TestErrorHandlingIntegration:
         """Test API error handling"""
         # Mock media player to raise exceptions
         mock_media_player.get_status.side_effect = Exception("Media player error")
+        mock_media_player.get_media_objects.side_effect = Exception(
+            "Media objects error"
+        )
         mock_media_player.play_media.side_effect = Exception("Playback error")
 
         client = TestClient(app)
@@ -377,7 +380,7 @@ class TestPerformanceIntegration:
     """Test performance aspects of integration"""
 
     @patch("media_player.VLC_AVAILABLE", True)
-    @patch("media.media_player.vlc")
+    @patch("media.player_core.vlc")
     def test_startup_performance(self, mock_vlc, temp_config_file, temp_music_folder):
         """Test that startup is reasonably fast"""
         # Setup VLC mock

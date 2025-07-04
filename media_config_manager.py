@@ -29,7 +29,7 @@ class MediaConfigManager:
         self.load_config()
         self.load_media_objects()
 
-    def load_config(self) -> bool:
+    def load_config(self) -> Dict[str, Any]:
         """Load general configuration from JSON file"""
         try:
             if not self.config_file.exists():
@@ -37,18 +37,18 @@ class MediaConfigManager:
                     f"Config file {self.config_file} not found, using defaults"
                 )
                 self.config = self._get_default_config()
-                return False
+                return self.config
 
             with open(self.config_file, "r", encoding="utf-8") as f:
                 self.config = json.load(f)
 
             logger.info(f"Loaded general configuration from {self.config_file}")
-            return True
+            return self.config
 
         except (json.JSONDecodeError, IOError) as e:
             logger.error(f"Failed to load config file {self.config_file}: {e}")
             self.config = self._get_default_config()
-            return False
+            return self.config
 
     def load_media_objects(self) -> bool:
         """Load media objects from JSON file"""
@@ -128,6 +128,11 @@ class MediaConfigManager:
                 "brightness": 50,
                 "update_interval": 0.5,
                 "button_layout": {"max_buttons": 15},
+                "carousel": {
+                    "infinite_wrap": True,
+                    "auto_reset_seconds": 30,
+                    "default_position": 0,
+                },
             },
         )
 
@@ -221,6 +226,11 @@ class MediaConfigManager:
                 "brightness": 50,
                 "update_interval": 0.5,
                 "button_layout": {"max_buttons": 15},
+                "carousel": {
+                    "infinite_wrap": True,
+                    "auto_reset_seconds": 30,
+                    "default_position": 0,
+                },
             },
             "ui_config": {
                 "colors": {

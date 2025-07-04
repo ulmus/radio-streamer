@@ -18,7 +18,7 @@ class TestFullSystemIntegration:
     """Test full system integration"""
 
     @patch("media_player.VLC_AVAILABLE", True)
-    @patch("media.media_player.vlc")
+    @patch("media.player_core.vlc")
     def test_api_media_player_integration(
         self, mock_vlc, temp_config_file, temp_music_folder
     ):
@@ -48,7 +48,7 @@ class TestFullSystemIntegration:
         assert "volume" in status
 
     @patch("media_player.VLC_AVAILABLE", True)
-    @patch("media.media_player.vlc")
+    @patch("media.player_core.vlc")
     def test_config_media_player_integration(
         self, mock_vlc, temp_config_file, temp_music_folder
     ):
@@ -165,7 +165,7 @@ class TestPerformance:
     """Test system performance"""
 
     @patch("media_player.VLC_AVAILABLE", True)
-    @patch("media.media_player.vlc")
+    @patch("media.player_core.vlc")
     def test_startup_performance(self, mock_vlc, temp_config_file, temp_music_folder):
         """Test system startup performance"""
         # Mock VLC
