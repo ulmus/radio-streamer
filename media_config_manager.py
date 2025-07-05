@@ -365,6 +365,11 @@ class MediaConfigManager:
         media_config = self.config.get("media_config", {})
         return media_config.get("load_media_objects_file", True)
 
+    def is_local_albums_enabled(self) -> bool:
+        """Check if local albums loading is enabled"""
+        media_config = self.config.get("media_config", {})
+        return media_config.get("enable_local_albums", False)
+
     def reload_media_objects_if_enabled(self) -> bool:
         """Reload media objects only if loading is enabled"""
         if self.is_media_objects_loading_enabled():

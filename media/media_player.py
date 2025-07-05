@@ -64,10 +64,20 @@ class MediaPlayer:
 
     def _load_media(self):
         """Load all media from configuration and music folder"""
-        # Load local albums first
-        self.album_manager.load_albums()
-        album_media_objects = self.album_manager.create_media_objects()
-        self.media_objects.update(album_media_objects)
+        # Load local albums if enabled
+        if self.config_manager:
+            media_config = self.config_manager.config.get("media_config", {})
+            enable_local_albums = media_config.get("enable_local_albums", False)
+        else:
+            enable_local_albums = True  # Default to enabled if no config manager
+
+        if enable_local_albums:
+            self.album_manager.load_albums()
+            album_media_objects = self.album_manager.create_media_objects()
+            self.media_objects.update(album_media_objects)
+            logger.info("Local albums loading enabled - albums loaded")
+        else:
+            logger.info("Local albums loading disabled in configuration")
 
         # Load Sonos favorites if Sonos manager is available
         if self.sonos_manager:
@@ -278,6 +288,27 @@ class MediaPlayer:
     # Album management
     def load_albums(self) -> bool:
         """Reload local albums"""
+        # Check if local albums are enabled
+        if self.config_manager:
+            media_config = self.config_manager.config.get("media_config", {})
+            enable_local_albums = media_config.get("enable_local_albums", False)
+        else:
+            enable_local_albums = True  # Default to enabled if no config manager
+
+        if not enable_local_albums:
+            logger.info("Local albums loading disabled in configuration")
+
+            # Remove old album entries since they're now disabled
+            old_album_ids = [
+                mid for mid in self.media_objects.keys() if mid.startswith("album_")
+            ]
+            for album_id in old_album_ids:
+                del self.media_objects[album_id]
+
+            # Notify callbacks that media objects have changed
+            self._notify_media_change()
+            return False
+
         result = self.album_manager.load_albums()
         if result:
             # Update media objects with new albums

@@ -41,6 +41,14 @@ def temp_config_file():
                 "default_position": 0,
             },
         },
+        "media_config": {
+            "music_folder": "music",
+            "enable_local_albums": True,
+            "enable_spotify": False,
+            "enable_sonos": False,
+            "sonos_speaker_ip": None,
+            "load_media_objects_file": True,
+        },
         "colors": {
             "playing": [0, 150, 0],
             "loading": [255, 165, 0],
