@@ -56,6 +56,9 @@ class MediaPlayer:
         # Media objects management
         self.media_objects: Dict[str, MediaObject] = {}
 
+        # Callback for when media objects change (for StreamDeck etc.)
+        self.media_change_callbacks = []
+
         # Load media from configuration and filesystem
         self._load_media()
 
@@ -81,8 +84,10 @@ class MediaPlayer:
                     media_type = media_obj.get("type")
                     if media_type == "radio":
                         self._load_radio_station(media_obj)
-                        
-                logger.debug(f"Loaded {len(config_media_objects)} media objects from configuration file")
+
+                logger.debug(
+                    f"Loaded {len(config_media_objects)} media objects from configuration file"
+                )
             else:
                 logger.info("Media objects file loading is disabled in configuration")
 
@@ -99,6 +104,9 @@ class MediaPlayer:
                 self._load_radio_station(station_obj)
 
         logger.info(f"Loaded {len(self.media_objects)} media objects")
+
+        # Notify callbacks that media objects have changed
+        self._notify_media_change()
 
     def _load_radio_station(self, media_obj: dict):
         """Load a radio station from a configuration object"""
@@ -285,6 +293,9 @@ class MediaPlayer:
             # Add new album entries
             self.media_objects.update(album_media_objects)
 
+            # Notify callbacks that media objects have changed
+            self._notify_media_change()
+
         return result
 
     # Sonos management
@@ -307,6 +318,9 @@ class MediaPlayer:
 
             # Add new Sonos entries
             self.media_objects.update(sonos_media_objects)
+
+            # Notify callbacks that media objects have changed
+            self._notify_media_change()
 
         return result
 
@@ -340,13 +354,13 @@ class MediaPlayer:
         """Enable or disable loading of media objects from file"""
         if not self.config_manager:
             return False
-        
+
         result = self.config_manager.set_media_objects_loading(enabled)
-        
+
         if result:
             # Reload media to reflect the change
             self._load_media()
-            
+
         return result
 
     def is_media_objects_loading_enabled(self) -> bool:
@@ -354,3 +368,20 @@ class MediaPlayer:
         if not self.config_manager:
             return False
         return self.config_manager.is_media_objects_loading_enabled()
+
+    def add_media_change_callback(self, callback):
+        """Add a callback to be called when media objects change"""
+        self.media_change_callbacks.append(callback)
+
+    def remove_media_change_callback(self, callback):
+        """Remove a media change callback"""
+        if callback in self.media_change_callbacks:
+            self.media_change_callbacks.remove(callback)
+
+    def _notify_media_change(self):
+        """Notify all callbacks that media objects have changed"""
+        for callback in self.media_change_callbacks:
+            try:
+                callback()
+            except Exception as e:
+                logger.error(f"Error in media change callback: {e}")

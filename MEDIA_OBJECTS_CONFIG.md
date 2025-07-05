@@ -5,6 +5,7 @@ This document describes how to control whether the `media_objects.json` file is 
 ## Overview
 
 The media objects loading feature allows you to:
+
 - Enable or disable loading of predefined media objects from `media_objects.json`
 - Control this behavior through configuration or at runtime
 - Maintain all other functionality (local albums, Sonos favorites, etc.) regardless of this setting
@@ -105,6 +106,7 @@ media_objects = config_manager.get_media_objects()
 ### Runtime Changes
 
 When you change the setting at runtime:
+
 - **Disabling**: Immediately clears all loaded media objects from the file
 - **Enabling**: Immediately loads media objects from the file
 - **Media player**: Automatically reloads all media to reflect the change
@@ -112,6 +114,7 @@ When you change the setting at runtime:
 ## Use Cases
 
 ### Development and Testing
+
 ```json
 {
   "media_config": {
@@ -119,11 +122,13 @@ When you change the setting at runtime:
   }
 }
 ```
+
 - Skip predefined media objects during development
 - Test only with local albums and Sonos favorites
 - Faster startup without loading external media definitions
 
 ### Production with Custom Media Only
+
 ```json
 {
   "media_config": {
@@ -132,11 +137,13 @@ When you change the setting at runtime:
   }
 }
 ```
+
 - Use only Sonos favorites and local albums
 - Skip any predefined radio stations or playlists
 - Cleaner interface with only personally curated content
 
 ### Full Media Experience
+
 ```json
 {
   "media_config": {
@@ -146,6 +153,7 @@ When you change the setting at runtime:
   }
 }
 ```
+
 - Load everything: predefined media, Sonos favorites, local albums
 - Maximum content availability
 
@@ -154,20 +162,23 @@ When you change the setting at runtime:
 The setting affects all API endpoints that return media objects:
 
 ### GET /media
+
 ```bash
 curl http://localhost:8000/media
 ```
 
 Returns only media objects that are currently enabled:
+
 - With `load_media_objects_file: true`: Includes all media from `media_objects.json`
 - With `load_media_objects_file: false`: Excludes media from the file
 
 ### Runtime Control via API
+
 ```bash
 # Disable media objects loading
 curl -X POST http://localhost:8000/config/media-objects-loading -d '{"enabled": false}'
 
-# Enable media objects loading  
+# Enable media objects loading
 curl -X POST http://localhost:8000/config/media-objects-loading -d '{"enabled": true}'
 
 # Check current state
@@ -191,9 +202,10 @@ python test_media_objects_config.py
 ```
 
 This test demonstrates:
+
 1. Default behavior with loading enabled
 2. Disabling loading at runtime
-3. Re-enabling loading at runtime  
+3. Re-enabling loading at runtime
 4. Direct MediaConfigManager usage
 
 ## Backward Compatibility
@@ -206,30 +218,36 @@ This test demonstrates:
 ## Performance Impact
 
 ### Startup Performance
+
 - **Enabled**: Minimal impact, file is loaded once at startup
 - **Disabled**: Slightly faster startup as `media_objects.json` is skipped
 
 ### Runtime Performance
+
 - **Enabled**: No performance impact during normal operation
 - **Disabled**: Slightly less memory usage and fewer media objects to manage
 
 ### File Size Considerations
+
 - Large `media_objects.json` files will benefit more from the disable option
 - Small configuration files have negligible performance difference
 
 ## Troubleshooting
 
 ### Media Objects Not Loading
+
 1. Check `load_media_objects_file` setting in `config.json`
 2. Verify `media_objects.json` exists and is valid JSON
 3. Check application logs for loading errors
 
 ### Runtime Changes Not Working
+
 1. Ensure you're calling `set_media_objects_loading()` correctly
 2. Check that the MediaPlayer instance has a valid config manager
 3. Verify the change is persisted if needed
 
 ### Missing Expected Media
+
 1. Confirm the setting matches your expectation
 2. Check if media objects are defined in `media_objects.json` vs `config.json`
 3. Remember that Sonos and local albums have separate enable settings

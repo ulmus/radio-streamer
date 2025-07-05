@@ -18,44 +18,54 @@ logger = logging.getLogger(__name__)
 
 class StreamDeckController:
     """Main StreamDeck controller that coordinates all components"""
-    
+
     def __init__(self, media_player, config_file: str = "config.json"):
         from media_config_manager import MediaConfigManager
-        
+
         # Import check
         try:
             from StreamDeck.DeviceManager import DeviceManager
+
             if DeviceManager is None:
-                raise RuntimeError("StreamDeck library not available. Please install streamdeck package.")
+                raise RuntimeError(
+                    "StreamDeck library not available. Please install streamdeck package."
+                )
         except ImportError:
-            raise RuntimeError("StreamDeck library not available. Please install streamdeck package.")
+            raise RuntimeError(
+                "StreamDeck library not available. Please install streamdeck package."
+            )
 
         self.media_player = media_player
         self.config_manager = MediaConfigManager(config_file)
-        
+
         # Initialize components
         self.device_manager = StreamDeckDeviceManager()
-        self.image_creator = StreamDeckImageCreator(self.config_manager, self.media_player)
+        self.image_creator = StreamDeckImageCreator(
+            self.config_manager, self.media_player
+        )
         self.carousel_manager = CarouselManager(self.config_manager, self.media_player)
         self.button_manager = ButtonManager(
-            self.device_manager, self.image_creator, self.carousel_manager, 
-            self.media_player, self.config_manager
+            self.device_manager,
+            self.image_creator,
+            self.carousel_manager,
+            self.media_player,
+            self.config_manager,
         )
-        
+
         # Threading
         self.running = False
         self.update_thread = None
-        
+
         # Initialize device and setup interface
         if self.device_manager.initialize_device():
             self._setup_interface()
             self._start_update_thread()
-    
+
     @property
     def deck(self):
         """Provide access to the deck for backward compatibility"""
         return self.device_manager.deck
-    
+
     def _setup_interface(self):
         """Set up the StreamDeck interface"""
         if not self.device_manager.is_connected:
@@ -72,16 +82,20 @@ class StreamDeckController:
         # Set up all buttons
         self.button_manager.setup_buttons()
 
+        # Register for media change notifications
+        if hasattr(self.media_player, "add_media_change_callback"):
+            self.media_player.add_media_change_callback(self.refresh_media)
+
         logger.info(
             f"Set up StreamDeck interface with {self.carousel_manager.get_media_count()} media objects"
         )
-    
+
     def _start_update_thread(self):
         """Start the background thread for updating button states"""
         self.running = True
         self.update_thread = threading.Thread(target=self._update_loop, daemon=True)
         self.update_thread.start()
-    
+
     def _update_loop(self):
         """Background loop to update button states"""
         streamdeck_config = self.config_manager.get_streamdeck_config()
@@ -97,20 +111,38 @@ class StreamDeckController:
 
                 # Update all button states
                 self.button_manager.update_all_buttons()
-                
+
                 time.sleep(update_interval)
             except Exception as e:
                 logger.error(f"Error in update loop: {e}")
                 time.sleep(1)
-    
+
     def refresh_stations(self):
         """Refresh media objects (call when media objects are added/removed)"""
         if self.device_manager.is_connected:
-            self.button_manager.refresh_buttons()
-    
+            self.refresh_media()
+
+    def refresh_media(self):
+        """Refresh media objects and update the interface"""
+        logger.info("Refreshing media objects for StreamDeck")
+
+        # Refresh media objects in carousel manager
+        self.carousel_manager.refresh_media_objects()
+
+        # Update all buttons to reflect changes
+        self.button_manager.setup_buttons()
+
+        logger.info(
+            f"StreamDeck interface updated with {self.carousel_manager.get_media_count()} media objects"
+        )
+
     def close(self):
         """Clean up StreamDeck connection"""
         self.running = False
+
+        # Unregister media change callback
+        if hasattr(self.media_player, "remove_media_change_callback"):
+            self.media_player.remove_media_change_callback(self.refresh_media)
 
         if self.update_thread and self.update_thread.is_alive():
             self.update_thread.join(timeout=2.0)
@@ -122,7 +154,7 @@ class StreamDeckController:
                     self.button_manager.clear_button(i)
             except Exception as e:
                 logger.error(f"Error clearing buttons: {e}")
-            
+
             self.device_manager.close()
 
         logger.info("StreamDeck interface closed")

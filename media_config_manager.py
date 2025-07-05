@@ -26,14 +26,14 @@ class MediaConfigManager:
         self.media_objects_file = Path(media_objects_file)
         self.config: Dict[str, Any] = {}
         self.media_objects: List[Dict[str, Any]] = []
-        
+
         # Load config first to check if we should load media objects
         self.load_config()
-        
+
         # Conditionally load media objects based on config
         media_config = self.config.get("media_config", {})
         load_media_objects = media_config.get("load_media_objects_file", True)
-        
+
         if load_media_objects:
             self.load_media_objects()
         else:
@@ -349,7 +349,7 @@ class MediaConfigManager:
         media_config = self.config.get("media_config", {})
         media_config["load_media_objects_file"] = enabled
         self.config["media_config"] = media_config
-        
+
         if enabled:
             # Load media objects if enabling
             self.load_media_objects()
@@ -357,7 +357,7 @@ class MediaConfigManager:
             # Clear media objects if disabling
             self.media_objects = []
             logger.info("Media objects cleared due to disabled loading")
-        
+
         return True
 
     def is_media_objects_loading_enabled(self) -> bool:
