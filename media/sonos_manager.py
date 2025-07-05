@@ -44,9 +44,7 @@ class SonosManager:
 
             config_manager = MediaConfigManager()
             media_config = config_manager.config.get("media_config", {})
-            self.album_art_enabled = media_config.get(
-                "sonos_album_art_enabled", True
-            )
+            self.album_art_enabled = media_config.get("sonos_album_art_enabled", True)
             cache_dir_config = media_config.get(
                 "sonos_album_art_cache_dir", "images/sonos_cache"
             )
@@ -59,7 +57,9 @@ class SonosManager:
         if cache_dir_config.startswith("/"):
             self.cache_dir = cache_dir_config
         else:
-            self.cache_dir = os.path.join(os.path.dirname(__file__), "..", cache_dir_config)
+            self.cache_dir = os.path.join(
+                os.path.dirname(__file__), "..", cache_dir_config
+            )
         os.makedirs(self.cache_dir, exist_ok=True)
 
         if not SOCO_AVAILABLE:
@@ -205,7 +205,12 @@ class SonosManager:
             if self.album_art_enabled:
                 try:
                     if hasattr(favorite, "album_art_uri") and favorite.album_art_uri:
-                        album_art_path = self._download_album_art(favorite.album_art_uri, favorite_id) or ""
+                        album_art_path = (
+                            self._download_album_art(
+                                favorite.album_art_uri, favorite_id
+                            )
+                            or ""
+                        )
                 except Exception as e:
                     logger.debug(f"Failed to get album art for {title}: {e}")
 

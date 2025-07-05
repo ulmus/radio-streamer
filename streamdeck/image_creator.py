@@ -10,6 +10,7 @@ from typing import Optional, TYPE_CHECKING
 
 try:
     from PIL import Image, ImageDraw, ImageFont
+
     PIL_AVAILABLE = True
 except ImportError:
     PIL_AVAILABLE = False
@@ -19,6 +20,7 @@ except ImportError:
 
 try:
     from StreamDeck.ImageHelpers import PILHelper
+
     STREAMDECK_AVAILABLE = True
 except ImportError:
     STREAMDECK_AVAILABLE = False
@@ -34,7 +36,7 @@ else:
         class MediaType:
             RADIO = "radio"
             ALBUM = "album"
-        
+
         class PlayerState:
             PLAYING = "playing"
             PAUSED = "paused"
@@ -42,17 +44,18 @@ else:
             ERROR = "error"
             STOPPED = "stopped"
 
+
 logger = logging.getLogger(__name__)
 
 
 class StreamDeckImageCreator:
     """Creates images for StreamDeck buttons"""
-    
+
     def __init__(self, config_manager, media_player):
         self.config_manager = config_manager
         self.media_player = media_player
         self.colors = config_manager.get_colors()
-        
+
     def create_button_image(
         self,
         deck,
@@ -65,7 +68,7 @@ class StreamDeckImageCreator:
         if not deck:
             logger.error("Deck not initialized, cannot create button image")
             return b""
-            
+
         # Get button image dimensions
         image_format = deck.key_image_format()
         image_size = image_format["size"]
@@ -75,15 +78,19 @@ class StreamDeckImageCreator:
             image_path = self._get_media_image_path(media_id)
             if image_path and os.path.exists(image_path):
                 try:
-                    return self._create_thumbnail_button(deck, image_path, image_size, color)
+                    return self._create_thumbnail_button(
+                        deck, image_path, image_size, color
+                    )
                 except Exception as e:
                     logger.warning(f"Failed to load thumbnail for {media_id}: {e}")
                     # Fall back to text-based button
 
         # Create text-based button (fallback or for control buttons)
         return self._create_text_button(deck, text, color, image_size, is_control)
-    
-    def _create_thumbnail_button(self, deck, image_path: str, image_size: tuple, color: tuple) -> bytes:
+
+    def _create_thumbnail_button(
+        self, deck, image_path: str, image_size: tuple, color: tuple
+    ) -> bytes:
         """Create a button with thumbnail image and colored border"""
         # Load and resize the thumbnail image
         thumbnail = Image.open(image_path)
@@ -116,8 +123,10 @@ class StreamDeckImageCreator:
             logger.error("PILHelper is not available.")
             return b""
         return PILHelper.to_native_format(deck, image)
-    
-    def _create_text_button(self, deck, text: str, color: tuple, image_size: tuple, is_control: bool) -> bytes:
+
+    def _create_text_button(
+        self, deck, text: str, color: tuple, image_size: tuple, is_control: bool
+    ) -> bytes:
         """Create a button with text and background color"""
         image = Image.new("RGB", image_size, color)
         draw = ImageDraw.Draw(image)
@@ -125,7 +134,7 @@ class StreamDeckImageCreator:
         # Get font settings from config
         ui_config = self.config_manager.get_ui_config()
         font_settings = ui_config.get("font_settings", {})
-        
+
         font = self._get_font(font_settings, image_size)
 
         # Prepare text for display
@@ -150,7 +159,7 @@ class StreamDeckImageCreator:
             logger.error("PILHelper is not available.")
             return b""
         return PILHelper.to_native_format(deck, image)
-    
+
     def create_text_button(self, deck, text: str, color: tuple) -> bytes:
         """Create a simple text button"""
         if not deck:
@@ -158,9 +167,9 @@ class StreamDeckImageCreator:
 
         image_format = deck.key_image_format()
         image_size = image_format["size"]
-        
+
         return self._create_text_button(deck, text, color, image_size, is_control=True)
-    
+
     def create_arrow_button(self, deck, arrow_text: str, color: tuple) -> bytes:
         """Create a button with arrow symbol"""
         if not deck:
@@ -193,7 +202,7 @@ class StreamDeckImageCreator:
         if PILHelper is None:
             return b""
         return PILHelper.to_native_format(deck, image)
-    
+
     def create_now_playing_button(self, deck, media_id: str, player_state) -> bytes:
         """Create now playing button with album art and play/pause overlay"""
         try:
@@ -212,17 +221,23 @@ class StreamDeckImageCreator:
 
             if image_path and os.path.exists(image_path):
                 try:
-                    background_image = self._create_album_art_background(image_path, image_size)
+                    background_image = self._create_album_art_background(
+                        image_path, image_size
+                    )
                 except Exception as e:
                     logger.warning(f"Failed to load album art for {media_id}: {e}")
                     background_image = None
 
             # Fallback to colored background if no image
             if background_image is None:
-                background_image = self._create_text_background(media_obj, player_state, image_size)
+                background_image = self._create_text_background(
+                    media_obj, player_state, image_size
+                )
 
             # Add play/pause overlay icon
-            background_image = self._add_playback_overlay(background_image, player_state)
+            background_image = self._add_playback_overlay(
+                background_image, player_state
+            )
 
             # Convert to Stream Deck format
             if PILHelper is None:
@@ -234,7 +249,7 @@ class StreamDeckImageCreator:
         except Exception as e:
             logger.error(f"Failed to create now playing button: {e}")
             return b""
-    
+
     def _create_album_art_background(self, image_path: str, image_size: tuple):
         """Create background with album art"""
         # Load and resize the thumbnail image
@@ -253,9 +268,9 @@ class StreamDeckImageCreator:
             background_image.paste(thumbnail, (thumb_x, thumb_y), thumbnail)
         else:
             background_image.paste(thumbnail, (thumb_x, thumb_y))
-            
+
         return background_image
-    
+
     def _create_text_background(self, media_obj, player_state, image_size: tuple):
         """Create background with text when no album art is available"""
         state_color = self._get_state_color(player_state)
@@ -283,7 +298,7 @@ class StreamDeckImageCreator:
 
         draw.text((x, y), display_name, font=font, fill="white")
         return background_image
-    
+
     def _add_playback_overlay(self, image, player_state):
         """Add play/pause/loading overlay icon to the image"""
         # Calculate icon position (bottom-right corner)
@@ -314,7 +329,9 @@ class StreamDeckImageCreator:
         elif player_state == PlayerState.PAUSED:
             self._draw_play_icon(icon_draw, center_x, center_y, icon_size, icon_color)
         elif player_state == PlayerState.LOADING:
-            self._draw_loading_icon(icon_draw, center_x, center_y, icon_size, icon_color)
+            self._draw_loading_icon(
+                icon_draw, center_x, center_y, icon_size, icon_color
+            )
 
         # Composite the icon onto the main image
         image.paste(icon_bg, (icon_x, icon_y), icon_bg)
@@ -326,8 +343,10 @@ class StreamDeckImageCreator:
             return rgb_image
 
         return image
-    
-    def _draw_pause_icon(self, draw, center_x: int, center_y: int, icon_size: int, color: tuple):
+
+    def _draw_pause_icon(
+        self, draw, center_x: int, center_y: int, icon_size: int, color: tuple
+    ):
         """Draw pause icon (two vertical bars)"""
         bar_width = max(3, icon_size // 5)
         bar_height = icon_size // 2
@@ -335,19 +354,31 @@ class StreamDeckImageCreator:
 
         # Left bar
         left_x = center_x - bar_spacing - bar_width
-        draw.rectangle([
-            left_x, center_y - bar_height // 2,
-            left_x + bar_width, center_y + bar_height // 2,
-        ], fill=color)
+        draw.rectangle(
+            [
+                left_x,
+                center_y - bar_height // 2,
+                left_x + bar_width,
+                center_y + bar_height // 2,
+            ],
+            fill=color,
+        )
 
         # Right bar
         right_x = center_x + bar_spacing
-        draw.rectangle([
-            right_x, center_y - bar_height // 2,
-            right_x + bar_width, center_y + bar_height // 2,
-        ], fill=color)
-    
-    def _draw_play_icon(self, draw, center_x: int, center_y: int, icon_size: int, color: tuple):
+        draw.rectangle(
+            [
+                right_x,
+                center_y - bar_height // 2,
+                right_x + bar_width,
+                center_y + bar_height // 2,
+            ],
+            fill=color,
+        )
+
+    def _draw_play_icon(
+        self, draw, center_x: int, center_y: int, icon_size: int, color: tuple
+    ):
         """Draw play icon (triangle)"""
         triangle_size = icon_size // 2
         points = [
@@ -356,19 +387,30 @@ class StreamDeckImageCreator:
             (center_x + triangle_size // 2, center_y),
         ]
         draw.polygon(points, fill=color)
-    
-    def _draw_loading_icon(self, draw, center_x: int, center_y: int, icon_size: int, color: tuple):
+
+    def _draw_loading_icon(
+        self, draw, center_x: int, center_y: int, icon_size: int, color: tuple
+    ):
         """Draw loading icon (3 dots in triangular pattern)"""
         dot_radius = max(2, icon_size // 8)
         for i in range(3):
             # Position dots in a triangular pattern (120 degrees apart)
-            dot_x = center_x + int((icon_size // 5) * (0.866 if i == 0 else -0.433 if i == 1 else -0.433))
-            dot_y = center_y + int((icon_size // 5) * (0 if i == 0 else 0.75 if i == 1 else -0.75))
-            draw.ellipse([
-                dot_x - dot_radius, dot_y - dot_radius,
-                dot_x + dot_radius, dot_y + dot_radius,
-            ], fill=color)
-    
+            dot_x = center_x + int(
+                (icon_size // 5) * (0.866 if i == 0 else -0.433 if i == 1 else -0.433)
+            )
+            dot_y = center_y + int(
+                (icon_size // 5) * (0 if i == 0 else 0.75 if i == 1 else -0.75)
+            )
+            draw.ellipse(
+                [
+                    dot_x - dot_radius,
+                    dot_y - dot_radius,
+                    dot_x + dot_radius,
+                    dot_y + dot_radius,
+                ],
+                fill=color,
+            )
+
     def _get_media_image_path(self, media_id: str) -> Optional[str]:
         """Get the file path for a media object's thumbnail image"""
         media_obj = self.media_player.get_media_object(media_id)
@@ -386,7 +428,9 @@ class StreamDeckImageCreator:
 
         # For radio stations, check the images/stations directory
         if media_obj.media_type == MediaType.RADIO:
-            images_dir = os.path.join(os.path.dirname(__file__), "..", "images", "stations")
+            images_dir = os.path.join(
+                os.path.dirname(__file__), "..", "images", "stations"
+            )
             station_id = media_id
 
             # Try different common image formats
@@ -397,30 +441,33 @@ class StreamDeckImageCreator:
 
         # For local albums, check the album directory for album_art
         elif media_obj.media_type == MediaType.ALBUM and media_obj.album:
-            if (media_obj.album.album_art_path and 
-                os.path.exists(media_obj.album.album_art_path)):
+            if media_obj.album.album_art_path and os.path.exists(
+                media_obj.album.album_art_path
+            ):
                 return media_obj.album.album_art_path
 
         return None
-    
+
     def _get_font(self, font_settings: dict, image_size: tuple):
         """Get font for text rendering"""
         try:
             font_size_range = font_settings.get("font_size_range", [12, 24])
-            font_size = max(font_size_range[0], min(font_size_range[1], image_size[0] // 6))
+            font_size = max(
+                font_size_range[0], min(font_size_range[1], image_size[0] // 6)
+            )
             return ImageFont.truetype("/System/Library/Fonts/Arial.ttf", font_size)
         except (OSError, IOError):
             return ImageFont.load_default()
-    
+
     def _truncate_text(self, text: str, font_settings: dict) -> str:
         """Truncate text based on configuration"""
         max_text_length = font_settings.get("max_text_length", 12)
         truncate_suffix = font_settings.get("truncate_suffix", "...")
 
         if len(text) > max_text_length:
-            return text[:max_text_length - len(truncate_suffix)] + truncate_suffix
+            return text[: max_text_length - len(truncate_suffix)] + truncate_suffix
         return text
-    
+
     def _get_state_color(self, player_state):
         """Get color based on player state"""
         if player_state == PlayerState.PLAYING:

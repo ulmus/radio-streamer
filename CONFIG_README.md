@@ -173,7 +173,7 @@ The `media_config` section in `config.json` controls various media-related featu
 ### Feature Toggles
 
 - `enable_local_albums`: Enable local music album playback (default: false)
-- `enable_spotify`: Enable Spotify integration (default: false) 
+- `enable_spotify`: Enable Spotify integration (default: false)
 - `enable_sonos`: Enable Sonos speaker integration (default: true)
 
 ### Sonos Configuration
