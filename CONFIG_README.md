@@ -34,7 +34,12 @@ Contains application settings, UI configuration, and StreamDeck settings:
   "media_config": {
     "music_folder": "music",
     "enable_local_albums": true,
-    "enable_spotify": true
+    "enable_spotify": false,
+    "enable_sonos": true,
+    "sonos_speaker_ip": null,
+    "sonos_album_art_enabled": true,
+    "sonos_album_art_cache_dir": "images/sonos_cache",
+    "load_media_objects_file": true
   }
 }
 ```

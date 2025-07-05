@@ -31,6 +31,8 @@
     "enable_spotify": false,
     "enable_sonos": true,
     "sonos_speaker_ip": null,
-    "load_media_objects_file": false
+    "load_media_objects_file": false,
+    "sonos_album_art_enabled": true,
+    "sonos_album_art_cache_dir": "images/sonos_cache"
   }
 }

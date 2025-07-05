@@ -27,7 +27,9 @@ Update your `config.json` file to enable Sonos integration:
 {
   "media_config": {
     "enable_sonos": true,
-    "sonos_speaker_ip": null
+    "sonos_speaker_ip": null,
+    "sonos_album_art_enabled": true,
+    "sonos_album_art_cache_dir": "images/sonos_cache"
   }
 }
 ```
@@ -55,6 +57,18 @@ To find your Sonos speaker's IP address:
 - Use the Sonos app on your phone/computer
 - Go to Settings > System > Network
 - Or check your router's connected devices
+
+#### Album Art Configuration
+
+Control album art downloading and caching:
+
+```json
+"sonos_album_art_enabled": true,
+"sonos_album_art_cache_dir": "images/sonos_cache"
+```
+
+- `sonos_album_art_enabled`: Enable/disable album art downloading (default: true)
+- `sonos_album_art_cache_dir`: Directory for cached album art images (default: "images/sonos_cache")
 
 ## Usage
 
@@ -137,7 +151,7 @@ MediaObject(
     media_type=MediaType.SONOS,         # Media type
     path="x-sonos-spotify:...",         # Sonos URI
     description="Sonos Favorite: My Playlist",
-    image_path=""                       # Currently not populated
+    image_path="/path/to/cached/album_art.jpg"  # Cached album art path (if available)
 )
 ```
 
@@ -211,13 +225,59 @@ logging.getLogger('media.sonos_manager').setLevel(logging.DEBUG)
 
 ## Integration with StreamDeck
 
-Sonos favorites automatically appear in the StreamDeck interface alongside radio stations and local albums. They can be controlled using the same button layout and navigation system.
+Sonos favorites automatically appear in the StreamDeck interface alongside radio stations and local albums. They can be controlled using the same button layout and navigation system. **Album art from Sonos favorites is automatically displayed on StreamDeck buttons** when available.
+
+## Album Art Support
+
+The Sonos integration now includes full album art support:
+
+### Features
+
+- **Automatic Download**: Album art is automatically downloaded from Sonos favorites when available
+- **Intelligent Caching**: Images are cached locally to avoid repeated downloads
+- **StreamDeck Integration**: Album art appears on StreamDeck buttons for visual identification
+- **Configurable**: Can be enabled/disabled via configuration
+
+### Cache Management
+
+- Album art is cached in `images/sonos_cache/` by default
+- Cache directory can be configured via `sonos_album_art_cache_dir`
+- Images are named using content hashes to avoid duplicates
+- Cache persists between application restarts for faster loading
+
+### Configuration
+
+```json
+{
+  "media_config": {
+    "sonos_album_art_enabled": true,
+    "sonos_album_art_cache_dir": "images/sonos_cache"
+  }
+}
+```
+
+### Troubleshooting Album Art
+
+If album art isn't appearing:
+
+1. **Check Configuration**: Ensure `sonos_album_art_enabled` is `true`
+2. **Network Access**: Verify the application can access external URLs
+3. **Cache Directory**: Check that the cache directory exists and is writable
+4. **Sonos Favorites**: Not all Sonos favorites have album art (especially radio stations)
+
+To clear the album art cache:
+
+```bash
+rm -rf images/sonos_cache/
+```
+
+The cache will be rebuilt automatically when favorites are loaded.
 
 ## Future Enhancements
 
 Possible future features:
 
-- Album art support for Sonos favorites
 - Browse and play Sonos music library (not just favorites)
 - Multi-room audio support
 - Now playing information display
+- Higher resolution album art options

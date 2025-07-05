@@ -379,6 +379,10 @@ class StreamDeckImageCreator:
         if media_obj.image_path and os.path.exists(media_obj.image_path):
             return media_obj.image_path
 
+        # For Sonos favorites, the image_path should already be set from cached album art
+        if media_obj.media_type == MediaType.SONOS:
+            # This case should be handled by the check above, but we can add fallback logic here if needed
+            logger.debug(f"No album art found for Sonos favorite: {media_obj.name}")
 
         # For radio stations, check the images/stations directory
         if media_obj.media_type == MediaType.RADIO:

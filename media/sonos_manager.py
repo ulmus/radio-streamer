@@ -5,6 +5,9 @@ Handles Sonos speaker integration including favorite playlists and playback cont
 """
 
 import logging
+import os
+import hashlib
+import requests
 from typing import Dict, Optional
 
 try:
@@ -34,6 +37,30 @@ class SonosManager:
         self.device = None  # Will be SoCo instance if available
         self.current_media: Optional[MediaObject] = None
         self.favorites = []  # Will be List[DidlFavorite] if available
+
+        # Load album art configuration
+        try:
+            from media_config_manager import MediaConfigManager
+
+            config_manager = MediaConfigManager()
+            media_config = config_manager.config.get("media_config", {})
+            self.album_art_enabled = media_config.get(
+                "sonos_album_art_enabled", True
+            )
+            cache_dir_config = media_config.get(
+                "sonos_album_art_cache_dir", "images/sonos_cache"
+            )
+        except Exception:
+            # Fallback to defaults if config loading fails
+            self.album_art_enabled = True
+            cache_dir_config = "images/sonos_cache"
+
+        # Create cache directory for album art
+        if cache_dir_config.startswith("/"):
+            self.cache_dir = cache_dir_config
+        else:
+            self.cache_dir = os.path.join(os.path.dirname(__file__), "..", cache_dir_config)
+        os.makedirs(self.cache_dir, exist_ok=True)
 
         if not SOCO_AVAILABLE:
             logger.warning("SoCo library not available, Sonos functionality disabled")
@@ -90,20 +117,54 @@ class SonosManager:
         """Load Sonos favorites"""
         if not self.device:
             return
-            
+
         try:
             # Try the newer API first
-            if hasattr(self.device, 'music_library'):
+            if hasattr(self.device, "music_library"):
                 self.favorites = list(self.device.music_library.get_sonos_favorites())
             else:
                 # Fallback to older API
                 self.favorites = self.device.get_sonos_favorites()
-            
+
             logger.info(f"Loaded {len(self.favorites)} Sonos favorites")
-            
+
         except Exception as e:
             logger.error(f"Failed to load Sonos favorites: {e}")
             self.favorites = []
+
+    def _download_album_art(
+        self, album_art_uri: str, favorite_id: str
+    ) -> Optional[str]:
+        """Download and cache album art from URI"""
+        if not album_art_uri:
+            return None
+
+        try:
+            # Create filename based on URI hash for caching
+            uri_hash = hashlib.md5(album_art_uri.encode()).hexdigest()
+            filename = f"{favorite_id}_{uri_hash}.jpg"
+            cache_path = os.path.join(self.cache_dir, filename)
+
+            # Check if already cached
+            if os.path.exists(cache_path):
+                logger.debug(f"Using cached album art: {cache_path}")
+                return cache_path
+
+            # Download the image
+            logger.debug(f"Downloading album art from: {album_art_uri}")
+            response = requests.get(album_art_uri, timeout=10)
+            response.raise_for_status()
+
+            # Save to cache
+            with open(cache_path, "wb") as f:
+                f.write(response.content)
+
+            logger.info(f"Downloaded and cached album art: {cache_path}")
+            return cache_path
+
+        except Exception as e:
+            logger.warning(f"Failed to download album art from {album_art_uri}: {e}")
+            return None
 
     def create_media_objects(self) -> Dict[str, MediaObject]:
         """Create MediaObject instances for all Sonos favorites"""
@@ -115,7 +176,7 @@ class SonosManager:
         for i, favorite in enumerate(self.favorites):
             # Get the title safely - it might be a property or method
             try:
-                if hasattr(favorite, 'title'):
+                if hasattr(favorite, "title"):
                     if callable(favorite.title):
                         title = str(favorite.title())
                     else:
@@ -125,25 +186,37 @@ class SonosManager:
                     title = str(favorite)
             except Exception:
                 title = f"Favorite_{i}"
-            
+
             # Ensure title is a string and create a safe ID
             title = str(title) if title else f"Favorite_{i}"
-            safe_title = title.replace(' ', '_').replace('/', '_').replace('\\', '_').lower()
+            safe_title = (
+                title.replace(" ", "_").replace("/", "_").replace("\\", "_").lower()
+            )
             favorite_id = f"sonos_{i}_{safe_title}"
 
             # Get URI safely
             try:
-                uri = favorite.uri if hasattr(favorite, 'uri') else ""
+                uri = favorite.uri if hasattr(favorite, "uri") else ""
             except Exception:
                 uri = ""
 
+            # Get album art URI and download/cache it
+            album_art_path = ""
+            if self.album_art_enabled:
+                try:
+                    if hasattr(favorite, "album_art_uri") and favorite.album_art_uri:
+                        album_art_path = self._download_album_art(favorite.album_art_uri, favorite_id) or ""
+                except Exception as e:
+                    logger.debug(f"Failed to get album art for {title}: {e}")
+
+            # Create media object
             media_object = MediaObject(
                 id=favorite_id,
                 name=title,
                 media_type=MediaType.SONOS,
                 path=uri,
                 description=f"Sonos Favorite: {title}",
-                image_path="",  # Sonos favorites might not have images easily accessible
+                image_path=album_art_path,  # Now includes actual album art path
             )
 
             media_objects[favorite_id] = media_object
@@ -165,7 +238,7 @@ class SonosManager:
             favorite = None
             for fav in self.favorites:
                 try:
-                    fav_uri = fav.uri if hasattr(fav, 'uri') else ""
+                    fav_uri = fav.uri if hasattr(fav, "uri") else ""
                     if fav_uri == media_obj.path:
                         favorite = fav
                         break
@@ -190,10 +263,10 @@ class SonosManager:
                 self.device.clear_queue()
             except Exception:
                 pass  # Ignore clear errors if queue is already empty
-            
+
             # Try multiple methods to play the favorite
             playback_started = False
-            
+
             # Method 1: Try adding the favorite object to queue (older SoCo)
             if not playback_started:
                 try:
@@ -224,7 +297,9 @@ class SonosManager:
                     logger.debug(f"Method 3 failed: {e}")
 
             if not playback_started:
-                self.player_core.error_message = f"Failed to start playback of {media_obj.name}"
+                self.player_core.error_message = (
+                    f"Failed to start playback of {media_obj.name}"
+                )
                 self.player_core.state = PlayerState.ERROR
                 return False
 
@@ -383,3 +458,45 @@ class SonosManager:
     def is_connected(self) -> bool:
         """Check if connected to a Sonos speaker"""
         return self.device is not None
+
+    def download_album_art(self, uri: str) -> str:
+        """Download album art image and return local path"""
+        if not uri:
+            return ""
+
+        try:
+            # Create a safe filename based on the URI
+            filename = hashlib.md5(uri.encode("utf-8")).hexdigest() + ".jpg"
+            file_path = os.path.join(self.get_album_art_cache_dir(), filename)
+
+            # Check if already cached
+            if os.path.exists(file_path):
+                logger.debug(f"Album art already cached: {file_path}")
+                return file_path
+
+            # Download the image
+            response = requests.get(uri, timeout=5)
+            response.raise_for_status()  # Raise an error for bad responses
+
+            # Save to cache directory
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+            with open(file_path, "wb") as f:
+                f.write(response.content)
+
+            logger.info(f"Downloaded and cached album art: {file_path}")
+            return file_path
+
+        except Exception as e:
+            logger.error(f"Failed to download album art: {e}")
+            return ""
+
+    def get_album_art_cache_dir(self) -> str:
+        """Get the directory for caching album art images"""
+        # Use a subdirectory in the user's home directory
+        home_dir = os.path.expanduser("~")
+        cache_dir = os.path.join(home_dir, ".sonos_manager", "album_art")
+
+        # Ensure the directory exists
+        os.makedirs(cache_dir, exist_ok=True)
+
+        return cache_dir
