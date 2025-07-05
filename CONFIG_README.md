@@ -160,3 +160,45 @@ Simply reorder the items in the `media_objects.json` array. The first item becom
 ```
 
 Now the Spotify album will be the first button on the StreamDeck!
+
+## Media Configuration Options
+
+The `media_config` section in `config.json` controls various media-related features:
+
+### Core Settings
+
+- `music_folder`: Directory containing local album files (default: "music")
+- `load_media_objects_file`: Whether to load predefined media objects from `media_objects.json` (default: true)
+
+### Feature Toggles
+
+- `enable_local_albums`: Enable local music album playback (default: false)
+- `enable_spotify`: Enable Spotify integration (default: false) 
+- `enable_sonos`: Enable Sonos speaker integration (default: true)
+
+### Sonos Configuration
+
+- `sonos_speaker_ip`: IP address of specific Sonos speaker, or `null` for auto-discovery (default: null)
+- `sonos_album_art_enabled`: Download and cache album art from Sonos favorites (default: true)
+- `sonos_album_art_cache_dir`: Directory for cached Sonos album art (default: "images/sonos_cache")
+
+### Example Configuration
+
+```json
+{
+  "media_config": {
+    "music_folder": "music",
+    "enable_local_albums": false,
+    "enable_spotify": false,
+    "enable_sonos": true,
+    "sonos_speaker_ip": "192.168.1.100",
+    "sonos_album_art_enabled": true,
+    "sonos_album_art_cache_dir": "images/sonos_cache",
+    "load_media_objects_file": true
+  }
+}
+```
+
+## Ordering Media Objects
+
+You can reorder how media appears on your StreamDeck by modifying the `media_objects.json` file.
